@@ -1,0 +1,41 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build App (g++)",
+            "type": "shell",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/C"
+                    ]
+                }
+            },
+            "command": "g++",
+            "args": [
+                "-g",
+                "src/main.cpp",
+                "src/UI.cpp",
+                "-o",
+                "App.exe",
+                "-O2",
+                "-static",
+                "-Iinclude",
+                "-Llib",
+                "-lraylib",
+                "-lopengl32",
+                "-lgdi32",
+                "-lwinmm",
+                "-Wl,--subsystem,windows"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },  
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

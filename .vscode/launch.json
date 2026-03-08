@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Build and Run App", 
+            "type": "cppdbg",
+            "request": "launch",
+
+            "program": "${workspaceFolder}/App.exe",
+
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}", 
+            "environment": [],
+            "externalConsole": false, 
+            "MIMode": "gdb",
+
+            "miDebuggerPath": "gdb",
+            
+            "preLaunchTask": "Build App (g++)"
+        }
+    ]
+}

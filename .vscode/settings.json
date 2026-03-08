@@ -1,0 +1,9 @@
+{
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+
+    "files.associations": {
+        "*.h": "cpp",
+        "raylib.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}
