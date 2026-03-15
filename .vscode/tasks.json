@@ -17,6 +17,7 @@
                 "-g",
                 "src/main.cpp",
                 "src/UI.cpp",
+                "src/MainLoop.cpp",
                 "-o",
                 "App.exe",
                 "-O2",
