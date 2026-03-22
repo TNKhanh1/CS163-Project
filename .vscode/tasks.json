@@ -19,6 +19,7 @@
                 "src/UI.cpp",
                 "src/MainLoop.cpp",
                 "src/MenuState.cpp",
+                "src/LinkedListState.cpp",
                 "-o",
                 "App.exe",
                 "-O2",
