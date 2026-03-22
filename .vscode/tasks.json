@@ -18,6 +18,7 @@
                 "src/main.cpp",
                 "src/UI.cpp",
                 "src/MainLoop.cpp",
+                "src/MenuState.cpp",
                 "-o",
                 "App.exe",
                 "-O2",

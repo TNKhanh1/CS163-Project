@@ -7,13 +7,15 @@ class back_ground
 {
     public:
         bool type = 0; 
-        back_ground(const char* imagePath, Vector2 imagePosition, const char* imagePath02);
+        back_ground(const char* imagePath, Vector2 imagePosition, const char* imagePath02, bool isParallax = false);
         ~back_ground();
-        void Draw();
+        void Draw(Vector2 mousePos = {-1.0f, -1.0f});
     private:
         Texture2D texture;
         Texture2D texture02;
         Vector2 position;
+        Vector2 currentOffset;
+        bool isParallax;
 };
 
 class button 
