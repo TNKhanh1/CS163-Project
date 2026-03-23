@@ -14,15 +14,19 @@ class AVLTree {
 private:
     Node* root;
 
-    int height(Node* root);
+    int height(Node* root) const;
 
-    int getBalance(Node* root);
+    int getBalance(Node* root) const;
 
     Node* rightRotate(Node* y);
 
     Node* leftRotate(Node* x);
 
     void insertTo(Node*& node, int key);
+
+    void remove(Node*& node, int key);
+
+    void balancingRotation(Node*& node);
 
 public:
     AVLTree();
@@ -31,9 +35,9 @@ public:
 
     void insert(int k);
 
-    Node* search(int k);
+    const Node* search(int k) const;
 
     void delNode(int k);
 
-    Node* rootCall();
+    const Node* rootCall() const;
 };
