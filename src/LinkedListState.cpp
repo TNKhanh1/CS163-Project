@@ -221,18 +221,51 @@ void LinkedListState::update(float deltaTime)
         else if (activeInput == INP_DELETE_IDX) HandleTextInput(inputDeleteIdx, activeInput);
         
         if (IsKeyPressed(KEY_ENTER)) {
-            std::cout << "ENTER PRESSED! Executing action..." << std::endl;
-            if (activeInput == INP_CREATE) inputCreate.clear();
-            else if (activeInput == INP_SEARCH) inputSearch.clear();
-            else if (activeInput == INP_INSERT_VAL || activeInput == INP_INSERT_IDX) { inputInsertIdx.clear(); inputInsertVal.clear(); }
-            else if (activeInput == INP_DELETE_IDX) inputDeleteIdx.clear();
-            activeInput = INP_NONE;
-        }
+			std::cout << "ENTER PRESSED! Executing action..." << std::endl;
+			
+			try {
+				if (activeInput == INP_CREATE && !inputCreate.empty()) {
+					int val = std::stoi(inputCreate);
+					insertNode(val); 
+					inputCreate.clear();
+				}
+				else if (activeInput == INP_SEARCH && !inputSearch.empty()) {
+					int val = std::stoi(inputSearch);
+					searchNode(val);
+					inputSearch.clear();
+				}
+				else if ((activeInput == INP_INSERT_VAL || activeInput == INP_INSERT_IDX) 
+						 && !inputInsertIdx.empty() && !inputInsertVal.empty()) {
+					int idx = std::stoi(inputInsertIdx);
+					int val = std::stoi(inputInsertVal);
+					insertNodeAtIndex(idx, val);
+					inputInsertIdx.clear(); 
+					inputInsertVal.clear();
+				}
+				else if (activeInput == INP_DELETE_IDX && !inputDeleteIdx.empty()) {
+					int idx = std::stoi(inputDeleteIdx);
+					deleteNodeAtIndex(idx);
+					inputDeleteIdx.clear();
+				}
+			} catch (...) {
+				std::cout << "Invalid input!" << std::endl;
+			}
+			activeInput = INP_NONE;
+		}
     }
 
     if (isMousePressed && !isDraggingControlBtn) {
         activeInput = INP_NONE; 
     }
+    float moveSpeed = 8.0f;
+	LLNode* currentAnim = head;
+	while (currentAnim != nullptr) 
+	{
+		currentAnim->position.x = Lerp(currentAnim->position.x, currentAnim->targetPosition.x, deltaTime * moveSpeed);
+		currentAnim->position.y = Lerp(currentAnim->position.y, currentAnim->targetPosition.y, deltaTime * moveSpeed);
+		
+		currentAnim = currentAnim->next;
+	}
 }
 
 // CÁC HÀM HỖ TRỢ VẼ UI
@@ -368,7 +401,9 @@ void LinkedListState::draw()
                 float sy = startY + 0 * (mainItemHeight + gap); 
                 float cx = subX;
 
-                if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { std::cout << "Action: Create Empty\n"; }
+                if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { 
+                    clearList();
+                }
                 cx += 90 + gap;
 
                 if (DrawButtonText({cx, sy}, "User Defined List", 230, mainItemHeight, isCreateUserDefOpen)) {
@@ -376,7 +411,12 @@ void LinkedListState::draw()
                 }
                 cx += 230 + gap;
 
-                if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { std::cout << "Action: Create Random\n"; }
+                if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
+                    clearList();
+                    for(int i = 0; i < 5; i++) {
+                        insertNode(GetRandomValue(1, 99));
+                    }
+                }
 
                 if (isCreateUserDefOpen) {
                     float ud_sx = subX + 90 + gap;
@@ -386,7 +426,26 @@ void LinkedListState::draw()
                         activeInput = INP_CREATE;
                     }
                     ud_sx += 230 + gap;
-                    DrawButtonText({ud_sx, ud_sy}, "GO", 50, mainItemHeight);
+                    if (DrawButtonText({ud_sx, ud_sy}, "GO", 50, mainItemHeight)) {
+                        if (!inputCreate.empty()) {
+                            clearList();                           
+                            std::string temp = "";
+                            for (char c : inputCreate) {
+                                if (c == ',') {
+                                    if (!temp.empty()) {
+                                        insertNode(std::stoi(temp));
+                                        temp = "";
+                                    }
+                                } else {
+                                    temp += c;
+                                }
+                            }
+                            if (!temp.empty()) insertNode(std::stoi(temp));
+                            inputCreate.clear();
+                            activeInput = INP_NONE;
+                            isCreateUserDefOpen = false;
+                        }
+                    }
                 }
             }
             else if (activeSubPanel == SUB_INSERT) {
@@ -405,7 +464,11 @@ void LinkedListState::draw()
                 if (DrawTextBox({cx, sy}, inputInsertVal, activeInput == INP_INSERT_VAL, 100, mainItemHeight)) activeInput = INP_INSERT_VAL;
                 cx += 100 + gap;
 
-                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) { std::cout << "GO Insert\n"; }
+                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
+					if (!inputInsertIdx.empty() && !inputInsertVal.empty()) {
+						try { insertNodeAtIndex(std::stoi(inputInsertIdx), std::stoi(inputInsertVal)); inputInsertIdx.clear(); inputInsertVal.clear(); activeInput = INP_NONE; } catch (...) {}
+					}
+				}
             }
 			else if (activeSubPanel == SUB_SEARCH) {
                 float sy = startY + 2 * (mainItemHeight + gap); 
@@ -417,7 +480,11 @@ void LinkedListState::draw()
                 if (DrawTextBox({cx, sy}, inputSearch, activeInput == INP_SEARCH, 120, mainItemHeight)) activeInput = INP_SEARCH;
                 cx += 120 + gap;
 
-                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) { std::cout << "GO Search\n"; }
+                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
+					if (!inputSearch.empty()) {
+						try { searchNode(std::stoi(inputSearch)); inputSearch.clear(); activeInput = INP_NONE; } catch (...) {}
+					}
+				}
             }
 			else if (activeSubPanel == SUB_DELETE) {
                 float sy = startY + 3 * (mainItemHeight + gap); 
@@ -429,11 +496,45 @@ void LinkedListState::draw()
                 if (DrawTextBox({cx, sy}, inputDeleteIdx, activeInput == INP_DELETE_IDX, 120, mainItemHeight)) activeInput = INP_DELETE_IDX;
                 cx += 120 + gap;
 
-                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) { std::cout << "GO Delete\n"; }
+                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
+					if (!inputDeleteIdx.empty()) {
+						try { deleteNodeAtIndex(std::stoi(inputDeleteIdx)); inputDeleteIdx.clear(); activeInput = INP_NONE; } catch (...) {}
+					}
+				}
             }
         }
-        EndScissorMode();
+        EndScissorMode();    
     }
+    LLNode* currentDraw = head;
+	while (currentDraw != nullptr) 
+	{
+		if (currentDraw->next != nullptr) 
+		{
+			Vector2 startPos = { currentDraw->position.x + nodeRadius, currentDraw->position.y };
+			Vector2 endPos = { currentDraw->next->position.x - nodeRadius, currentDraw->next->position.y };
+			
+			DrawLineEx(startPos, endPos, 3.0f, DARKGRAY);
+			
+			float arrowSize = 12.0f;
+			DrawTriangle(
+				endPos,
+				{ endPos.x - arrowSize, endPos.y - arrowSize * 0.7f },
+				{ endPos.x - arrowSize, endPos.y + arrowSize * 0.7f },
+				DARKGRAY
+			);
+		}
+
+		DrawCircleV(currentDraw->position, nodeRadius, currentDraw->color);
+		DrawCircleLines(currentDraw->position.x, currentDraw->position.y, nodeRadius, DARKBLUE);
+		
+		const char* valText = TextFormat("%d", currentDraw->value);
+		int textWidth = MeasureTextEx(numberFont, valText, 22, 1).x;
+		
+		Vector2 textPos = { currentDraw->position.x - (textWidth / 2.0f), currentDraw->position.y - 11.0f };
+		DrawTextEx(numberFont, valText, textPos, 22, 1, WHITE);
+
+		currentDraw = currentDraw->next;
+	}
 }
 
 // CÁC HÀM XỬ LÝ LINKED LIST 
@@ -475,6 +576,65 @@ void LinkedListState::deleteNode(int value)
 		temp->next = temp->next->next;
 		delete nodeToDelete;
 		updateTargetPositions();
+	}
+}
+
+void LinkedListState::insertNodeAtIndex(int index, int value)
+{
+	if (index < 0) return;
+	
+	LLNode* newNode = new LLNode();
+	newNode->value = value;
+	newNode->next = nullptr;
+	newNode->color = SKYBLUE;
+	newNode->position = { startX, startY - 200.0f }; 
+
+	if (index == 0 || head == nullptr) {
+		newNode->next = head;
+		head = newNode;
+	} else {
+		LLNode* temp = head;
+		for (int i = 0; i < index - 1 && temp->next != nullptr; i++) {
+			temp = temp->next;
+		}
+		newNode->next = temp->next;
+		temp->next = newNode;
+	}
+	updateTargetPositions();
+}
+
+void LinkedListState::deleteNodeAtIndex(int index)
+{
+	if (head == nullptr || index < 0) return;
+
+	if (index == 0) {
+		LLNode* temp = head;
+		head = head->next;
+		delete temp;
+	} else {
+		LLNode* temp = head;
+		for (int i = 0; i < index - 1 && temp->next != nullptr; i++) {
+			temp = temp->next;
+		}
+		if (temp->next != nullptr) {
+			LLNode* nodeToDelete = temp->next;
+			temp->next = temp->next->next;
+			delete nodeToDelete;
+		}
+	}
+	updateTargetPositions();
+}
+
+void LinkedListState::searchNode(int value)
+{
+	LLNode* temp = head;
+	while (temp != nullptr) {
+		if (temp->value == value) {
+			temp->color = ORANGE; // Highlight found node
+		} else {
+			temp->color = SKYBLUE; // Reset others
+		}
+		temp = temp->next;
 	}
 }
 

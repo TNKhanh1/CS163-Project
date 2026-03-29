@@ -34,6 +34,9 @@ public:
 	void insertNode(int value);
 	void deleteNode(int value);
 	void clearList();
+    void insertNodeAtIndex(int index, int value);
+	void deleteNodeAtIndex(int index);
+	void searchNode(int value);
 
 	State NextState;
 
