@@ -1,15 +1,20 @@
 #pragma once
 #include<raylib.h>
 #include<raymath.h>
+
 #include<iostream>
 #include<UI.h>
 #include<vector>
-#include<State.h>
-#include <MenuState.h>
 #include <cstring>
 #include <thread>
 #include <chrono>
 #include <random>
+
+#include<State.h>
+#include <MenuState.h>
+#include<IntroState.h>
+#include<LinkedListState.h>
+
 using namespace std;
 
 class MainLoop
@@ -28,7 +33,7 @@ class MainLoop
     void draw();
     void BackState();
     void NextState();
-    void Intro();
+    //void Intro();
     
     private:
         int WindowHeight;
@@ -37,4 +42,6 @@ class MainLoop
 
 
         MenuState menu;
+        IntroState intro;
+        LinkedListState linkedList;
 };

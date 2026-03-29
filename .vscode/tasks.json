@@ -18,6 +18,7 @@
                 "src/main.cpp",
                 "src/UI.cpp",
                 "src/MainLoop.cpp",
+                "src/IntroState.cpp",
                 "src/MenuState.cpp",
                 "src/LinkedListState.cpp",
                 "-o",

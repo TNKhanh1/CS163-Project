@@ -106,6 +106,7 @@ void GradientButton::draw(Font font)
 
 MenuState::MenuState()
 {
+    NextState = Menu;
     bg = nullptr; 
     bubbleSpawnTimer = 0.0f;
 }
@@ -128,9 +129,9 @@ void MenuState::loadAssets()
 
     float btnWidth = 420.0f;
     float btnHeight = 100.0f;
-    float startX = (1600.0f - 420.0f) / 2 - 20; 
-    float startY = 280.0f; 
-    float gap = 160.0f;    
+    float startX = (1800.0f - 420.0f) / 2 + 20.0f; 
+    float startY = 245.0f; 
+    float gap = 180.0f;    
 
     buttons.push_back(GradientButton({startX, startY, btnWidth, btnHeight}, "LINKED LIST"));
     buttons.push_back(GradientButton({startX, startY + gap, btnWidth, btnHeight}, "HEAP"));
@@ -152,6 +153,7 @@ void MenuState::update(float deltaTime)
         if (btn.isClicked())
         {
             if (btn.text == "LINKED LIST") {
+                NextState = LinkedList;
             }
             if (btn.text == "HEAP") {
             }
@@ -257,10 +259,10 @@ void MenuState::update(float deltaTime)
             std::uniform_real_distribution<float> scaleDist(0.1f, 0.36f);
             b.scale = scaleDist(rng); 
             
-            std::uniform_real_distribution<float> xDist(0.0f, 1600.0f);
+            std::uniform_real_distribution<float> xDist(0.0f, 1800.0f);
             b.position.x = xDist(rng);
-            if(b.position.x > 600.0f && b.position.x < 800.0f) b.position.x -= 180.0f;
-            else if(b.position.x > 800.0f && b.position.x < 1000.0f) b.position.x += 180.0f;
+            if(b.position.x > 700.0f && b.position.x < 900.0f) b.position.x -= 180.0f;
+            else if(b.position.x > 900.0f && b.position.x < 1100.0f) b.position.x += 180.0f;
             
             b.position.y = 1000.0f; 
             
@@ -304,8 +306,8 @@ void MenuState::draw()
     
     Vector2 titleSize = MeasureTextEx(menuFont, titleText, titleFontSize, titleSpacing);
     Vector2 titlePos = {
-        1600.0f / 2.0f - titleSize.x / 2.0f, 
-        100.0f                               
+        1800.0f / 2.0f - titleSize.x / 2.0f + 40.0f, 
+        75.0f                               
     };
 
     DrawTextEx(menuFont, titleText, {titlePos.x + 4, titlePos.y + 4}, titleFontSize, titleSpacing, Fade(WHITE, 0.5f));

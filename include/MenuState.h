@@ -6,7 +6,6 @@
 #include <string>
 #include <random>
 #include <State.h>
-// Cấu trúc lưu trữ thông tin của từng bong bóng
 struct Bubble {
     Vector2 position;
     float speed;
@@ -14,7 +13,6 @@ struct Bubble {
     float wobbleOffset; 
 };
 
-// Class đại diện cho nút bấm với hiệu ứng CSS Gradient
 class GradientButton 
 {
     public:
@@ -36,6 +34,7 @@ class GradientButton
 class MenuState
 {
     public:
+        State NextState;
         MenuState();
         ~MenuState();
         

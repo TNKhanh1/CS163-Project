@@ -5,5 +5,6 @@ enum State
     LinkedList,
     Heap,
     AVLTree,
-    MST
+    MST,
+    Intro
 };

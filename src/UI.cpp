@@ -8,7 +8,7 @@ back_ground::back_ground(const char *imagePath, Vector2 imagePosition, const cha
     this->currentOffset = {0.0f, 0.0f};
 
 
-    int w = isParallax ? 1700 : 1600;
+    int w = isParallax ? 1900 : 1800;
     int h = isParallax ? 1100 : 1000;
 
     Image image = LoadImage(imagePath);
