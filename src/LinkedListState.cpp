@@ -4,7 +4,7 @@ LinkedListState::LinkedListState()
 {
 	head = nullptr;
 	startX = 100.0f;
-	startY = 500.0f;
+	startY = 450.0f;
 	nodeSpacing = 150.0f;
 	nodeRadius = 40.0f;
 
@@ -65,7 +65,6 @@ bool LinkedListState::IsValidInputString(const std::string& str, ActiveInput typ
 {
     if (type == INP_CREATE && str.length() > 30) return false;
     
-    // THÊM ĐIỀU KIỆN 1: Chặn dấu phẩy ở đầu chuỗi
     if (!str.empty() && str[0] == ',') return false;
 
     int currentDigitCount = 0;
@@ -84,7 +83,7 @@ bool LinkedListState::IsValidInputString(const std::string& str, ActiveInput typ
         }
         else if (c >= '0' && c <= '9') {
             currentDigitCount++;
-            if (currentDigitCount > 8) return false; 
+            if (currentDigitCount > 4) return false; 
         }
         else {
             return false; 
@@ -152,6 +151,8 @@ void LinkedListState::update(float deltaTime)
     if (homeBtn != nullptr && homeBtn->isPressed(mousePos, isMousePressed)) 
 	{
 		controlBtnPos = { 30.0f, 750.0f }; 
+        activeSubPanel = SUB_NONE;
+        isPanelOpen = 0;
 		NextState = Menu; 
 	}
 
@@ -413,7 +414,8 @@ void LinkedListState::draw()
 
                 if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
                     clearList();
-                    for(int i = 0; i < 5; i++) {
+                    int NumNode = GetRandomValue(1, 9);
+                    for(int i = 0; i < NumNode; i++) {
                         insertNode(GetRandomValue(1, 99));
                     }
                 }
@@ -528,10 +530,10 @@ void LinkedListState::draw()
 		DrawCircleLines(currentDraw->position.x, currentDraw->position.y, nodeRadius, DARKBLUE);
 		
 		const char* valText = TextFormat("%d", currentDraw->value);
-		int textWidth = MeasureTextEx(numberFont, valText, 22, 1).x;
+		int textWidth = MeasureTextEx(numberFont, valText, 25, 1).x;
 		
 		Vector2 textPos = { currentDraw->position.x - (textWidth / 2.0f), currentDraw->position.y - 11.0f };
-		DrawTextEx(numberFont, valText, textPos, 22, 1, WHITE);
+		DrawTextEx(numberFont, valText, textPos, 25, 1, WHITE);
 
 		currentDraw = currentDraw->next;
 	}

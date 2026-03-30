@@ -33,7 +33,6 @@ class MainLoop
     void draw();
     void BackState();
     void NextState();
-    //void Intro();
     
     private:
         int WindowHeight;
