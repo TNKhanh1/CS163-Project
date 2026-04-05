@@ -9,7 +9,7 @@ MainLoop::MainLoop()
 
 MainLoop::~MainLoop()
 {
-
+    
 }
 
 void MainLoop::LoadAssets()
@@ -91,27 +91,22 @@ void MainLoop::draw()
     {
         intro.draw();
         current_state = intro.NextState;
-        intro.NextState = Intro; 
+        intro.NextState = Intro;        
     }
     else if (current_state == Menu)
     {
         menu.draw();
-        current_state = menu.NextState;
-        menu.NextState = Menu;
+        current_state = menu.NextState; 
+        menu.NextState = Menu;          
     }
     else if (current_state == LinkedList)
     {
         linkedList.draw();
-        current_state = linkedList.NextState; 
-        linkedList.NextState = LinkedList;
+        current_state = (State)linkedList.NextState;
+        linkedList.NextState = (int)LinkedList;     
     }
 }
 
-//Các chức năng dự phòng
-void MainLoop::BackState()
-{
-}
-
-void MainLoop::NextState()
-{
-}
+// Các chức năng dự phòng
+void MainLoop::BackState() {}
+void MainLoop::NextState() {}

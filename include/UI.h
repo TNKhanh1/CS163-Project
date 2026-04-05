@@ -1,8 +1,6 @@
-#ifndef UI_H
-#define UI_H
 #pragma once 
 #include "raylib.h"
-
+#include <string>
 class back_ground
 {
     public:
@@ -48,4 +46,32 @@ class audio
         Sound Audio;
 };
 
-#endif 
+class slider 
+{
+public:
+    slider(Rectangle bounds, float minVal, float maxVal, float startVal);
+    void Update(Vector2 mousePos);
+    void Draw(Font font, Color fill = SKYBLUE);
+    float GetValue() const { return currentValue; }
+
+private:
+    Rectangle bounds;
+    float minValue;
+    float maxValue;
+    float currentValue;
+    bool isDragging;
+};
+
+class error_label 
+{
+public:
+    error_label();
+    void Set(std::string msg, float duration = 2.5f);
+    void Update(float deltaTime);
+    void Draw(Font font, Vector2 pos, float size);
+
+private:
+    std::string message;
+    float timer;
+};
+

@@ -141,3 +141,71 @@ void audio::Play(bool clickState)
     if (!clickState) return;
     PlaySound(Audio);
 }
+// Slider component
+slider::slider(Rectangle bounds, float minVal, float maxVal, float startVal)
+{
+    this->bounds = bounds;
+    this->minValue = minVal;
+    this->maxValue = maxVal;
+    this->currentValue = startVal;
+    this->isDragging = false;
+}
+
+void slider::Update(Vector2 mousePos)
+{
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, bounds)) {
+        isDragging = true;
+    }
+    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+        isDragging = false;
+    }
+
+    if (isDragging) {
+        float progress = (mousePos.x - bounds.x) / bounds.width;
+        if (progress < 0.0f) progress = 0.0f;
+        if (progress > 1.0f) progress = 1.0f;
+        currentValue = minValue + (progress * (maxValue - minValue));
+    }
+}
+
+void slider::Draw(Font font, Color fill)
+{
+    // Draw the track
+    DrawRectangleRounded(bounds, 1.0f, 8, LIGHTGRAY);
+    
+    // Draw the filled part
+    float fillPercentage = (currentValue - minValue) / (maxValue - minValue);
+    Rectangle filledPart = { bounds.x, bounds.y, bounds.width * fillPercentage, bounds.height };
+    DrawRectangleRounded(filledPart, 1.0f, 8, fill);
+
+    // Draw the handle
+    float handleX = bounds.x + (bounds.width * fillPercentage);
+    DrawCircle((int)handleX, (int)(bounds.y + bounds.height/2.0f), 12.0f, DARKBLUE);
+}
+// Error label
+error_label::error_label()
+{
+    message = "";
+    timer = 0.0f;
+}
+
+void error_label::Set(std::string msg, float duration)
+{
+    message = msg;
+    timer = duration;
+}
+
+void error_label::Update(float deltaTime)
+{
+    if (timer > 0.0f) {
+        timer -= deltaTime;
+        if (timer <= 0.0f) message = "";
+    }
+}
+
+void error_label::Draw(Font font, Vector2 pos, float size)
+{
+    if (timer > 0.0f) {
+        DrawTextEx(font, message.c_str(), pos, size, 1.0f, RED);
+    }
+}

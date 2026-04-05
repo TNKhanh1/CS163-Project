@@ -1,4 +1,5 @@
 #pragma once
+#include "DataStructureState.h"
 #include <raylib.h>
 #include <raymath.h>
 #include <vector>
@@ -8,84 +9,68 @@
 #include <UI.h>
 #include <State.h>
 
-struct LLNode 
-{
-	int value;
-	Vector2 position;
-	Vector2 targetPosition;
-	LLNode* next;
-	Color color;
-};
-
-//các Enum cho UI
+// Enums for UI state
 enum ActiveSubPanel { SUB_NONE, SUB_CREATE, SUB_INSERT, SUB_SEARCH, SUB_DELETE };
 enum ActiveInput { INP_NONE, INP_CREATE, INP_SEARCH, INP_INSERT_IDX, INP_INSERT_VAL, INP_DELETE_IDX };
+enum PendingTask { TASK_NONE, TASK_SEARCH, TASK_INSERT_INDEX, TASK_DELETE_INDEX };
 
-class LinkedListState
+struct LLNode {
+    int value;
+    Vector2 position;
+    Vector2 targetPosition;
+    LLNode* next;
+    Color color;
+};
+
+class LinkedListState : public DataStructureState 
 {
 public:
-	LinkedListState();
-	~LinkedListState();
-	
-	void update(float deltaTime);
-	void draw();
-	void loadAssets();
+    LinkedListState();
+    ~LinkedListState();
 
-	void insertNode(int value);
-	void deleteNode(int value);
-	void clearList();
-    void insertNodeAtIndex(int index, int value);
-	void deleteNodeAtIndex(int index);
-	void searchNode(int value);
-
-	State NextState;
+    void loadAssets() override;
+    void update(float deltaTime) override;
+    void draw() override;
 
 private:
-	LLNode* head;
-	Font listFont;
-	Font numberFont;
-	
-	// Layout configs
-	float startX;
-	float startY;
-	float nodeSpacing;
-	float nodeRadius;
-	
-	void updateTargetPositions();
-
-	back_ground* bg;
-    button* homeBtn;
+    // Linked list data
+    LLNode* head;
+    float startX, startY;
+    float nodeSpacing, nodeRadius;
 
     //Các biến trạng thái cho UI Control Panel
     Texture2D controlTex;
     Vector2 controlBtnPos;
-    bool isDraggingControlBtn;
     Vector2 dragOffset;
-    bool isClickingControlBtn;
-
-    bool isPanelOpen;
-    float panelAnimProgress; 
-
+    bool isDraggingControlBtn, isClickingControlBtn, isPanelOpen;
+    float panelAnimProgress;
+    
     ActiveSubPanel activeSubPanel;
-    ActiveInput activeInput;
-    ActiveInput previousActiveInput; // Để theo dõi khi nào đổi Textbox
+    ActiveInput activeInput, previousActiveInput;
+    bool isCreateUserDefOpen;
 
-    std::string inputCreate;
-    std::string inputSearch;
-    std::string inputInsertIdx;
-    std::string inputInsertVal;
-    std::string inputDeleteIdx;
+    // Textbox state
+    std::string inputCreate, inputSearch, inputInsertIdx, inputInsertVal, inputDeleteIdx;
+    int cursorIndex;
+    float cursorBlinkTimer, textScrollX;
+    bool cursorVisible;
 
-    bool isCreateUserDefOpen; 
+    // LL anim
+    LLNode* searchPointer;
+    int searchTargetValue, searchTargetIndex, searchCurrentIndex;
+    PendingTask currentTask;
 
-    int cursorIndex;          // Vị trí con trỏ trong chuỗi
-    float cursorBlinkTimer;   // Hẹn giờ nhấp nháy
-    bool cursorVisible;       // Trạng thái hiện/ẩn của con trỏ
-    float textScrollX;        // Vị trí cuộn ngang của Textbox
-
-    //Các hàm hỗ trợ vẽ UI
-    bool IsValidInputString(const std::string& str, ActiveInput type); // Hàm kiểm tra logic nhập
-    void HandleTextInput(std::string& text, ActiveInput type); // Cập nhật để nhận type
+    // Helper functions for linked list operations and UI
+    void insertNode(int value);
+    void insertNodeAtIndex(int index, int value);
+    void deleteNodeAtIndex(int index);
+    void searchNode(int value);
+    void clearList();
+    void updateTargetPositions();
+    void resetNodeColors();
+    
+    bool IsValidInputString(const std::string& str, ActiveInput type);
+    void HandleTextInput(std::string& text, ActiveInput type);
     bool DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected = false);
     bool DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height);
     void DrawLabel(Vector2 pos, const char* text);
