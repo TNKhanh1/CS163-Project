@@ -158,6 +158,7 @@ void MenuState::update(float deltaTime)
             if (btn.text == "HEAP") {
             }
             if (btn.text == "AVL TREE") {
+                NextState = AVLTree;
             }
             if (btn.text == "MINIMUM SPANNING TREE") {
             }
