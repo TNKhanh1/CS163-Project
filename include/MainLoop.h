@@ -14,6 +14,7 @@
 #include <MenuState.h>
 #include<IntroState.h>
 #include<LinkedListState.h>
+#include <AVLTreeState.h>
 
 using namespace std;
 
@@ -43,4 +44,5 @@ class MainLoop
         MenuState menu;
         IntroState intro;
         LinkedListState linkedList;
+        AVLTreeState avlTree;
 };
