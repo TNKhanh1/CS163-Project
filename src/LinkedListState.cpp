@@ -13,7 +13,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 
 	NextState = (int)LinkedList;
 
-	//Khá»Ÿi táº¡o tráº¡ng thÃ¡i UI 
+	//Khởi tạo trạng thái UI 
 	controlBtnPos = { 30.0f, 750.0f }; 
 	isDraggingControlBtn = false;
 	isClickingControlBtn = false;
@@ -24,7 +24,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 	previousActiveInput = INP_NONE;
 	isCreateUserDefOpen = false;
 
-	// Khá»Ÿi táº¡o TextBox state
+	// Khởi tạo TextBox state
 	cursorIndex = 0;
 	cursorBlinkTimer = 0.0f;
 	cursorVisible = true;
@@ -108,7 +108,7 @@ void LinkedListState::HandleTextInput(std::string& text, ActiveInput type)
 		}
 	}
 
-    //QuÃ©t PhÃ­m Váº­t LÃ½
+    //Quét Phím Vật Lý
     int keyCode = GetKeyPressed();
 	while (keyCode > 0) 
 	{
@@ -226,7 +226,7 @@ void LinkedListState::update(float deltaTime)
 		}
 	}
 
-    //Cáº­p nháº­t Textbox & Con trá»
+    //Cập nhật Textbox & Con trỏ
 	if (activeInput != previousActiveInput) {
 		if (activeInput == INP_CREATE) cursorIndex = inputCreate.length();
 		else if (activeInput == INP_SEARCH) cursorIndex = inputSearch.length();
@@ -289,7 +289,7 @@ void LinkedListState::update(float deltaTime)
 	}
 }
 
-// CÃC HÃ€M Há»– TRá»¢ Váº¼ UI
+// CÁC HÀM HỖ TRỢ VẼ UI
 bool LinkedListState::DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected)
 {
 	Rectangle bounds = {pos.x, pos.y, width, height};
@@ -319,7 +319,7 @@ bool LinkedListState::DrawTextBox(Vector2 pos, std::string& text, bool isActive,
 	float textHeight = MeasureTextEx(numberFont, "0", fontSize, 1.0f).y; 
 	float textDrawY = pos.y + (height - textHeight) / 2.0f; 
 	
-    // TÃ­nh toÃ¡n cuá»™n ngang
+    // Tính toán cuộn ngang
     if (isActive) {
 		std::string textBeforeCursor = text.substr(0, cursorIndex);
 		float cursorOffsetX = MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
@@ -335,7 +335,7 @@ bool LinkedListState::DrawTextBox(Vector2 pos, std::string& text, bool isActive,
 		textScrollX = 0; 
 	}
 
-    // Váº¼ CHá»® VÃ€ CON TRá»Ž Báº°NG NUMBER FONT
+    // VẼ CHỮ VÀ CON TRỎ BẰNG NUMBER FONT
     BeginScissorMode((int)pos.x, (int)pos.y, (int)width, (int)height);
 	
 	Vector2 textPos = { pos.x + padding - textScrollX, textDrawY };
@@ -349,7 +349,7 @@ bool LinkedListState::DrawTextBox(Vector2 pos, std::string& text, bool isActive,
 
 	EndScissorMode();
 
-    // KHÃ”I PHá»¤C SCISSOR MODE Cá»¦A MENU CHÃNH
+    // KHÔI PHỤC SCISSOR MODE CỦA MENU CHÍNH
     	float startX = controlBtnPos.x + controlTex.width + 15.0f;
 	BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
 
@@ -399,7 +399,7 @@ void LinkedListState::draw()
 	Vector2 mousePos = GetMousePosition();
 	Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
 	
-	// Kiá»ƒm tra náº¿u chuá»™t náº±m trong khu vá»±c nÃºt thÃ¬ lÃ m má» 30% (cÃ²n 0.7f), ngÆ°á»£c láº¡i giá»¯ nguyÃªn
+	// Kiểm tra nếu chuột nằm trong khu vực nút thì làm mờ 30% (còn 0.7f), ngược lại giữ nguyên
 	Color controlColor = CheckCollisionPointRec(mousePos, controlBtnBounds) ? Fade(WHITE, 0.7f) : WHITE;
 	
 	DrawTextureV(controlTex, controlBtnPos, controlColor);
@@ -602,7 +602,7 @@ void LinkedListState::deleteNodeAtIndex(int index)
 	}
 }
 
-// CÃC HÃ€M Xá»¬ LÃ LINKED LIST 
+// CÁC HÀM XỬ LÝ LINKED LIST 
 void LinkedListState::insertNode(int value)
 {
 	resetNodeColors();
