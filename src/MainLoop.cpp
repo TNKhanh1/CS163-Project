@@ -34,6 +34,7 @@ void MainLoop::LoadAssets()
     intro.loadAssets();
     menu.loadAssets();
     linkedList.loadAssets();
+    avlTree.loadAssets();
 
     UnloadFont(loadingFont); 
 }
@@ -45,7 +46,6 @@ void MainLoop::run()
     SetTargetFPS(60); 
     LoadAssets(); 
     
-    // Đã xóa hàm Intro() chặn luồng ở đây
     float fadeInAlpha = 255.0f; 
 
     while (!WindowShouldClose()) 
@@ -83,6 +83,10 @@ void MainLoop::update(float delta_time)
     {
         linkedList.update(delta_time); 
     }
+    else if (current_state == AVLTree)
+    {
+        avlTree.update(delta_time); 
+    }
 }
 
 void MainLoop::draw()
@@ -105,8 +109,15 @@ void MainLoop::draw()
         current_state = (State)linkedList.NextState;
         linkedList.NextState = (int)LinkedList;     
     }
+    else if (current_state == AVLTree)
+    {
+        avlTree.draw();
+        current_state = (State)avlTree.NextState;
+        avlTree.NextState = (int)AVLTree;     
+        
+    }
 }
 
-// Các chức năng dự phòng
+// Các chức năng dự phòng 
 void MainLoop::BackState() {}
-void MainLoop::NextState() {}
+void MainLoop::NextState() {}   
