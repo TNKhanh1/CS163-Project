@@ -34,6 +34,8 @@ LinkedListState::LinkedListState() : DataStructureState()
 	searchPointer = nullptr;
 	currentTask = TASK_NONE;
 	isAnimating = false;
+
+	previousZoomMultiplier = 1.0f;
 }
 
 LinkedListState::~LinkedListState()
@@ -141,6 +143,11 @@ void LinkedListState::update(float deltaTime)
 	
 	// 1. Update base UI (interactions, speed slider, error messages)
 	DataStructureState::updateSharedUI(deltaTime, mousePos);
+
+	if (zoomMultiplier != previousZoomMultiplier) {
+		updateTargetPositions();
+		previousZoomMultiplier = zoomMultiplier;
+	}
 
 	// 2. Traversal animation logic
 	if (isAnimating) {
@@ -372,26 +379,37 @@ void LinkedListState::draw()
 	const char* titleText = "SINGLY LINKED LIST";
 	DrawTextEx(listFont, titleText, { (1800.0f - MeasureTextEx(listFont, titleText, 55, 6.5f).x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
+	float currentRadius = nodeRadius * zoomMultiplier;
 	// Draw the linked list
 	LLNode* curr = head;
 	while (curr != nullptr) 
 	{
 		if (curr->next != nullptr) 
 		{
-			Vector2 startPos = { curr->position.x + nodeRadius, curr->position.y };
-			Vector2 endPos = { curr->next->position.x - nodeRadius, curr->next->position.y };
-			DrawLineEx(startPos, endPos, 3.0f, DARKGRAY);
+			Vector2 startPos = { curr->position.x + currentRadius, curr->position.y };
+			Vector2 endPos = { curr->next->position.x - currentRadius, curr->next->position.y };
 			
-			float arrowSize = 12.0f;
+			float lineThickness = 3.0f * zoomMultiplier;
+			if (lineThickness < 1.0f) lineThickness = 1.0f;
+			DrawLineEx(startPos, endPos, lineThickness, DARKGRAY);
+			
+			float arrowSize = 12.0f * zoomMultiplier;
 			DrawTriangle(endPos, 
 						 { endPos.x - arrowSize, endPos.y - arrowSize * 0.7f },
 						 { endPos.x - arrowSize, endPos.y + arrowSize * 0.7f }, 
 						 DARKGRAY);
 		}
 
-		DrawCircleV(curr->position, nodeRadius, curr->color);
-		DrawCircleLines(curr->position.x, curr->position.y, nodeRadius, DARKBLUE);
-		DrawTextEx(numberFont, TextFormat("%d", curr->value), { curr->position.x - 12, curr->position.y - 11 }, 25, 1, WHITE);
+		DrawCircleV(curr->position, currentRadius, curr->color);
+		DrawCircleLines(curr->position.x, curr->position.y, currentRadius, DARKBLUE);
+		
+		float scaledFontSize = 25.0f * zoomMultiplier;
+		const char* valText = TextFormat("%d", curr->value);
+		Vector2 tSize = MeasureTextEx(numberFont, valText, scaledFontSize, 1.0f);
+		Vector2 tPos = { curr->position.x - tSize.x / 2.0f, curr->position.y - tSize.y / 2.0f };
+		
+		DrawTextEx(numberFont, valText, tPos, scaledFontSize, 1.0f, WHITE);
+		
 		curr = curr->next;
 	}
 
@@ -667,9 +685,11 @@ void LinkedListState::updateTargetPositions()
 	LLNode* current = head;
 	float currentX = startX;
 
+	float currentSpacing = nodeSpacing * zoomMultiplier;
+
 	while (current != nullptr) {
 		current->targetPosition = { currentX, startY };
-		currentX += nodeSpacing;
+		currentX += currentSpacing;
 		current = current->next;
 	}
 }

@@ -60,6 +60,7 @@ private:
     int searchTargetValue, searchTargetIndex, searchCurrentIndex;
     PendingTask currentTask;
 
+    float previousZoomMultiplier;
     // Helper functions for linked list operations and UI
     void insertNode(int value);
     void insertNodeAtIndex(int index, int value);

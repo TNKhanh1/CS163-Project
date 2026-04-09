@@ -11,9 +11,13 @@ DataStructureState::DataStructureState()
 	inputErrorTimer = 0.0f;
 
 	// Shared anim and slider
-	speedSliderBounds = { 1500.0f, 920.0f, 200.0f, 10.0f };
+	speedSliderBounds = { 1500.0f, 870.0f, 200.0f, 10.0f };
 	animSpeedMultiplier = 1.0f;
 	isDraggingSpeedSlider = false;
+
+	zoomSliderBounds = { 1500.0f, 940.0f, 200.0f, 10.0f };
+	zoomMultiplier = 1.0f; 
+	isDraggingZoomSlider = false;
 	
 	animTimer = 0.0f;
 	isAnimating = false;
@@ -76,6 +80,21 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		if (inputErrorTimer <= 0.0f) inputErrorMsg = "";
 	}
 
+	Rectangle zoomHitBox = { zoomSliderBounds.x, zoomSliderBounds.y - 15.0f, zoomSliderBounds.width, 40.0f };
+	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, zoomHitBox)) {
+		isDraggingZoomSlider = true;
+    }
+	if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+		isDraggingZoomSlider = false;
+	}
+
+	if (isDraggingZoomSlider) {
+		float progress = (mousePos.x - zoomSliderBounds.x) / zoomSliderBounds.width;
+		if (progress < 0.0f) progress = 0.0f;
+		if (progress > 1.0f) progress = 1.0f;
+		zoomMultiplier = 0.2f + (progress * 1.8f); 
+	}
+
 }
 
 void DataStructureState::drawSharedUI()
@@ -100,12 +119,29 @@ void DataStructureState::drawSharedUI()
 	
 	const char* speedText = TextFormat("%.1fx", animSpeedMultiplier);
 	DrawTextEx(numberFont, speedText, { speedSliderBounds.x + speedSliderBounds.width + 15.0f, speedSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
+
+	//ZOOM
+	DrawTextEx(listFont, "Zoom", { zoomSliderBounds.x, zoomSliderBounds.y - 30.0f }, 22.0f, 1.0f, BLACK);
+	DrawRectangleRounded(zoomSliderBounds, 1.0f, 8, LIGHTGRAY);
+
+	float zoomFillWidth = ((zoomMultiplier - 0.2f) / 1.8f) * zoomSliderBounds.width;
+	Rectangle zoomFilledTrack = { zoomSliderBounds.x, zoomSliderBounds.y, zoomFillWidth, zoomSliderBounds.height };
+
+
+	DrawRectangleRounded(zoomFilledTrack, 1.0f, 8, SKYBLUE); 
+
+	float zoomHandleX = zoomSliderBounds.x + zoomFillWidth;
+	float zoomHandleY = zoomSliderBounds.y + (zoomSliderBounds.height / 2.0f);
+
+	DrawCircle((int)zoomHandleX, (int)zoomHandleY, 12.0f, DARKBLUE);
+
+	const char* zoomText = TextFormat("%d%%", (int)(zoomMultiplier * 100));
+	DrawTextEx(numberFont, zoomText, { zoomSliderBounds.x + zoomSliderBounds.width + 15.0f, zoomSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
 }
 
 bool DataStructureState::CheckStepReady(float deltaTime, float stepDuration)
 {
 	animTimer += deltaTime * animSpeedMultiplier;
-	
 	if (animTimer >= stepDuration) {
 		animTimer = 0.0f;
 		return true;

@@ -32,6 +32,10 @@ protected:
 	float animTimer;
 	bool isAnimating;
 
+	Rectangle zoomSliderBounds;
+	float zoomMultiplier;
+	bool isDraggingZoomSlider;
+
 	// Shared input error
 	std::string inputErrorMsg;
 	float inputErrorTimer;
