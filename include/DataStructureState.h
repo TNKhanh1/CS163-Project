@@ -17,6 +17,13 @@ public:
 	int NextState;
 
 protected:
+	// Dynamic operation slots
+	enum MainOp { 
+		OP_NONE = 0, 
+		OP_SLOT1, OP_SLOT2, OP_SLOT3, OP_SLOT4, OP_SLOT5, OP_SLOT6 
+	};
+	MainOp activeMainOp;
+
 	// Shared visual assets
 	back_ground* bg;
 	button* homeBtn;
@@ -48,7 +55,7 @@ protected:
 	float cursorBlinkTimer;
 	float textScrollX;
 	bool cursorVisible;
-	std::string inputBuffers[5]; // (0: Create, 1: Search, 2: InsertIdx, 3: InsertVal, 4: DeleteIdx)
+	std::string inputBuffers[5]; 
 
 	// Shared input error
 	std::string inputErrorMsg;
@@ -61,6 +68,11 @@ protected:
 	bool CheckStepReady(float deltaTime, float stepDuration);
 	void clearInputBuffers() { for (int i = 0; i < 5; i++) inputBuffers[i].clear(); }
 	virtual void handleAnimationStep() {} 
+
+	// Menu drawing tools
+	void DrawSideMenuFrame(const std::vector<std::string>& labels);
+	virtual void DrawSubMenuContent() = 0; 
+	virtual void onExecuteOp(MainOp op) = 0; 
 
 	// Shared logic methods
 	void updateControlPanel(float deltaTime, Vector2 mousePos);

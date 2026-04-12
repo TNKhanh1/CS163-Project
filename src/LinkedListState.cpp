@@ -13,9 +13,8 @@ LinkedListState::LinkedListState() : DataStructureState()
 
 	NextState = (int)LinkedList;
 
-	activeSubPanel = SUB_NONE;
-	activeInput = INP_NONE;
-	previousActiveInput = INP_NONE;
+	activeInputFocus = -1;
+	previousInputFocus = -1;
 	isCreateUserDefOpen = false;
 
 	searchPointer = nullptr;
@@ -48,45 +47,17 @@ void LinkedListState::update(float deltaTime)
 	}
 
 	// 2. Input Handling using inherited inputBuffers
-	if (activeInput != previousActiveInput) {
-	
-		cursorIndex = (activeInput == INP_NONE) ? 0 : inputBuffers[activeInput - 1].length();
+	if (activeInputFocus != previousInputFocus) {
+		cursorIndex = (activeInputFocus == -1) ? 0 : inputBuffers[activeInputFocus].length();
 		textScrollX = 0.0f; 
 		cursorBlinkTimer = 0.0f;
 		cursorVisible = true;
-		previousActiveInput = activeInput;
+		previousInputFocus = activeInputFocus;
 	}
 
-	if (activeInput != INP_NONE) {
-		HandleTextInput(inputBuffers[activeInput - 1], (activeInput == INP_CREATE));
-		
-		if (IsKeyPressed(KEY_ENTER)) {
-			try {
-				int idx = activeInput - 1;
-				switch (activeInput) {
-					case INP_CREATE: 
-						if (!inputBuffers[idx].empty()) { insertNode(std::stoi(inputBuffers[idx])); inputBuffers[idx].clear(); }
-						break;
-					case INP_SEARCH:
-						if (!inputBuffers[idx].empty()) { searchNode(std::stoi(inputBuffers[idx])); inputBuffers[idx].clear(); }
-						break;
-					case INP_INSERT_IDX:
-					case INP_INSERT_VAL:
-						if (!inputBuffers[2].empty() && !inputBuffers[3].empty()) {
-							insertNodeAtIndex(std::stoi(inputBuffers[2]), std::stoi(inputBuffers[3]));
-							inputBuffers[2].clear(); inputBuffers[3].clear();
-						}
-						break;
-					case INP_DELETE_IDX:
-						if (!inputBuffers[idx].empty()) { deleteNodeAtIndex(std::stoi(inputBuffers[idx])); inputBuffers[idx].clear(); }
-						break;
-					default: break;
-				}
-			} catch (...) {}
-			activeInput = INP_NONE;
-		}
+	if (activeInputFocus != -1) {
+		HandleTextInput(inputBuffers[activeInputFocus], (activeInputFocus == 0));
 	}
-
 	// 3. Node movement animation
 	LLNode* currentAnim = head;
 	while (currentAnim != nullptr) 
@@ -94,6 +65,55 @@ void LinkedListState::update(float deltaTime)
 		currentAnim->position = Vector2Lerp(currentAnim->position, currentAnim->targetPosition, deltaTime * 8.0f);
 		currentAnim = currentAnim->next;
 	}
+}
+
+void LinkedListState::onExecuteOp(MainOp op)
+{
+	try {
+		switch (op) {
+			case OP_SLOT1: // Create
+				if (!inputBuffers[0].empty()) {
+					clearList();                           
+					std::string temp = "";
+					for (char c : inputBuffers[0]) {
+						if (c == ',') { 
+							if (!temp.empty()) { insertNode(std::stoi(temp)); temp = ""; } 
+						} else { 
+							temp += c; 
+						}
+					}
+					if (!temp.empty()) insertNode(std::stoi(temp));
+					inputBuffers[0].clear(); 
+					isCreateUserDefOpen = false;
+				} 
+				break;
+			case OP_SLOT2: // Insert
+				if (!inputBuffers[2].empty() && !inputBuffers[3].empty()) {
+					insertNodeAtIndex(std::stoi(inputBuffers[2]), std::stoi(inputBuffers[3]));
+					inputBuffers[2].clear(); 
+					inputBuffers[3].clear();
+				} 
+				break;
+			case OP_SLOT3: // Search
+				if (!inputBuffers[1].empty()) { 
+					searchNode(std::stoi(inputBuffers[1])); 
+					inputBuffers[1].clear(); 
+				} 
+				break;
+			case OP_SLOT4: // Delete
+				if (!inputBuffers[4].empty()) { 
+					deleteNodeAtIndex(std::stoi(inputBuffers[4])); 
+					inputBuffers[4].clear(); 
+				} 
+				break;
+			default: 
+				break;
+		}
+	} catch (...) {
+		inputErrorMsg = "Invalid Input!";
+		inputErrorTimer = 2.0f;
+	}
+	activeInputFocus = -1; // Reset focus after execution
 }
 
 void LinkedListState::handleAnimationStep()
@@ -146,6 +166,53 @@ void LinkedListState::handleAnimationStep()
 			isAnimating = false;
 			resetNodeColors();
 		}
+	}
+}
+
+void LinkedListState::DrawSubMenuContent()
+{
+	float mainHeight = 45.0f, gap = 8.0f;
+	float subX = controlBtnPos.x + (float)controlTex.width + 15.0f + 125.0f + gap;
+	float startY = controlBtnPos.y;
+
+	switch (activeMainOp) 
+	{
+		case OP_SLOT1: // Create
+			if (DrawButtonText({subX, startY}, "Empty", 90, mainHeight, false)) clearList();
+			if (DrawButtonText({subX + 98, startY}, "User Defined", 160, mainHeight, isCreateUserDefOpen)) isCreateUserDefOpen = !isCreateUserDefOpen;
+			if (DrawButtonText({subX + 266, startY}, "Random", 110, mainHeight, false)) {
+				clearList();
+				for(int i = 0; i < GetRandomValue(3, 7); i++) insertNode(GetRandomValue(1, 99));
+			}
+			if (isCreateUserDefOpen) {
+				if (DrawTextBox({subX + 98, startY + mainHeight + gap}, inputBuffers[0], activeInputFocus == 0, 230, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 0;
+				if (DrawButtonText({subX + 336, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT1);
+			}
+			break;
+
+		case OP_SLOT2: // Insert
+			DrawLabel({subX, startY + mainHeight + gap}, "Index=");
+			if (DrawTextBox({subX + 80, startY + mainHeight + gap}, inputBuffers[2], activeInputFocus == 2, 70, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 2;
+			
+			DrawLabel({subX + 160, startY + mainHeight + gap}, "Value=");
+			if (DrawTextBox({subX + 240, startY + mainHeight + gap}, inputBuffers[3], activeInputFocus == 3, 70, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 3;
+			
+			if (DrawButtonText({subX + 320, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT2);
+			break;
+
+		case OP_SLOT3: // Search
+			DrawLabel({subX, startY + 2 * (mainHeight + gap)}, "Value=");
+			if (DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffers[1], activeInputFocus == 1, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 1;
+			if (DrawButtonText({subX + 210, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT3);
+			break;
+
+		case OP_SLOT4: // Delete
+			DrawLabel({subX, startY + 3 * (mainHeight + gap)}, "Index=");
+			if (DrawTextBox({subX + 80, startY + 3 * (mainHeight + gap)}, inputBuffers[4], activeInputFocus == 4, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 4;
+			if (DrawButtonText({subX + 210, startY + 3 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT4);
+			break;
+		default: 
+			break;
 	}
 }
 
@@ -208,92 +275,7 @@ void LinkedListState::draw()
 
 	// 4. Control Panel UI
 	DrawTextureV(controlTex, controlBtnPos, WHITE);
-	if (panelAnimProgress > 0.0f) 
-	{
-		float easedProgress = sin(panelAnimProgress * PI / 2.0f); 
-		float mainWidth = 125.0f, mainHeight = 45.0f, gap = 8.0f; 
-		float startX = controlBtnPos.x + (float)controlTex.width + 15.0f;
-		float startY = controlBtnPos.y; 
-		
-		BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-		float panelX = startX - mainWidth * (1.0f - easedProgress);
-
-		const char* labels[] = {"Create", "Insert", "Search", "Delete"};
-		ActiveSubPanel subPanels[] = {SUB_CREATE, SUB_INSERT, SUB_SEARCH, SUB_DELETE};
-
-		for (int i = 0; i < 4; i++) {
-			float itemY = startY + i * (mainHeight + gap);
-			if (DrawButtonText({panelX, itemY}, labels[i], mainWidth, mainHeight, (activeSubPanel == subPanels[i]))) {
-				if (activeSubPanel == subPanels[i]) activeSubPanel = SUB_NONE; 
-				else { activeSubPanel = subPanels[i]; isCreateUserDefOpen = false; }
-			}
-		}
-
-		float subX = panelX + mainWidth + gap; 
-		switch (activeSubPanel) 
-		{
-			case SUB_CREATE: {
-				float sy = startY; 
-				if (DrawButtonText({subX, sy}, "Empty", 90, mainHeight, false)) clearList();
-				if (DrawButtonText({subX + 98, sy}, "User Defined", 160, mainHeight, isCreateUserDefOpen)) isCreateUserDefOpen = !isCreateUserDefOpen; 
-				if (DrawButtonText({subX + 266, sy}, "Random", 110, mainHeight, false)) { 
-					clearList();
-					int n = GetRandomValue(1, 9); 
-					for(int i = 0; i < n; i++) insertNode(GetRandomValue(1, 99));
-				}
-				if (isCreateUserDefOpen) {
-					if (DrawTextBox({subX + 98, sy + mainHeight + gap}, inputBuffers[0], activeInput == INP_CREATE, 230, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_CREATE;
-					if (DrawButtonText({subX + 336, sy + mainHeight + gap}, "GO", 50, mainHeight, false)) {
-						if (!inputBuffers[0].empty()) {
-							clearList();                           
-							std::string temp = "";
-							for (char c : inputBuffers[0]) {
-								if (c == ',') { if (!temp.empty()) { insertNode(std::stoi(temp)); temp = ""; } } 
-								else { temp += c; }
-							}
-							if (!temp.empty()) insertNode(std::stoi(temp));
-							inputBuffers[0].clear(); activeInput = INP_NONE; isCreateUserDefOpen = false;
-						}
-					}
-				}
-				break;
-			}
-			case SUB_INSERT: {
-				float sy = startY + mainHeight + gap;
-				DrawLabel({subX, sy}, "Idx =");
-				if (DrawTextBox({subX + 60, sy}, inputBuffers[2], activeInput == INP_INSERT_IDX, 80, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_INSERT_IDX;
-				DrawLabel({subX + 150, sy}, "Val =");
-				if (DrawTextBox({subX + 210, sy}, inputBuffers[3], activeInput == INP_INSERT_VAL, 80, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_INSERT_VAL;
-				if (DrawButtonText({subX + 300, sy}, "GO", 50, mainHeight, false)) {
-					if (!inputBuffers[2].empty() && !inputBuffers[3].empty()) {
-						insertNodeAtIndex(std::stoi(inputBuffers[2]), std::stoi(inputBuffers[3])); 
-						inputBuffers[2].clear(); inputBuffers[3].clear(); activeInput = INP_NONE;
-					}
-				}
-				break;
-			}
-			case SUB_SEARCH: {
-				float sy = startY + 2 * (mainHeight + gap);
-				DrawLabel({subX, sy}, "Val =");
-				if (DrawTextBox({subX + 60, sy}, inputBuffers[1], activeInput == INP_SEARCH, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_SEARCH;
-				if (DrawButtonText({subX + 190, sy}, "GO", 50, mainHeight, false)) {
-					if (!inputBuffers[1].empty()) { searchNode(std::stoi(inputBuffers[1])); inputBuffers[1].clear(); activeInput = INP_NONE; }
-				}
-				break;
-			}
-			case SUB_DELETE: {
-				float sy = startY + 3 * (mainHeight + gap);
-				DrawLabel({subX, sy}, "Idx =");
-				if (DrawTextBox({subX + 60, sy}, inputBuffers[4], activeInput == INP_DELETE_IDX, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_DELETE_IDX;
-				if (DrawButtonText({subX + 190, sy}, "GO", 50, mainHeight, false)) {
-					if (!inputBuffers[4].empty()) { deleteNodeAtIndex(std::stoi(inputBuffers[4])); inputBuffers[4].clear(); activeInput = INP_NONE; }
-				}
-				break;
-			}
-			default: break;
-		}
-		EndScissorMode();    
-	}
+	DrawSideMenuFrame({"Create", "Insert", "Search", "Delete"}); // Delegates to base class
 }
 
 void LinkedListState::searchNode(int value)
@@ -349,10 +331,10 @@ void LinkedListState::insertNodeAtIndex(int index, int value)
 void LinkedListState::resetNodeColors()
 {
 	LLNode* curr = head;
-	while (curr) {
-		curr->color = SKYBLUE;
-curr = curr->next;
-}
+	while (curr) { 
+		curr->color = SKYBLUE; 
+		curr = curr->next; 
+	}
 }
 
 void LinkedListState::clearList()

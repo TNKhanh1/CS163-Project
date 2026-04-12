@@ -7,6 +7,7 @@ DataStructureState::DataStructureState()
 	bg = nullptr;
 	homeBtn = nullptr;
 	NextState = -1; 
+	activeMainOp = OP_NONE; // Initialize to no active operation
 
 	inputErrorMsg = "";
 	inputErrorTimer = 0.0f;
@@ -64,10 +65,115 @@ void DataStructureState::loadAssets()
 	UnloadImage(ctrlImg);
 }
 
-void DataStructureState::update(float deltaTime) {}
-void DataStructureState::draw() {}
+void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
+{
+	if (homeBtn != nullptr && homeBtn->isPressed(mousePos, IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) {
+		NextState = 0;
+		return;
+	}
 
-// Shared control panel logic and shared UI drawing tools
+	// 1. Centralized Animation Trigger
+	if (isAnimating && CheckStepReady(deltaTime, 0.7f)) {
+		handleAnimationStep(); // Calls the child's implementation
+	}
+
+	// 2. Centralized ENTER Key Logic
+	if (IsKeyPressed(KEY_ENTER) && activeMainOp != OP_NONE) {
+		onExecuteOp(activeMainOp);
+	}
+
+	// 3. Error Message Timer
+	if (inputErrorTimer > 0.0f) {
+		inputErrorTimer -= deltaTime;
+		if (inputErrorTimer <= 0.0f) inputErrorMsg = "";
+	}
+
+	// 4. Speed Slider Logic
+	Rectangle speedSliderHitBox = { speedSliderBounds.x, speedSliderBounds.y - 15.0f, speedSliderBounds.width, 40.0f };
+	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, speedSliderHitBox)) isDraggingSpeedSlider = true;
+	if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) isDraggingSpeedSlider = false;
+
+	if (isDraggingSpeedSlider) {
+		float progress = Clamp((mousePos.x - speedSliderBounds.x) / speedSliderBounds.width, 0.0f, 1.0f);
+		animSpeedMultiplier = 0.2f + (progress * 3.8f); 
+	}
+
+	// 5. Zoom Slider Logic
+	Rectangle zoomHitBox = { zoomSliderBounds.x, zoomSliderBounds.y - 15.0f, zoomSliderBounds.width, 40.0f };
+	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, zoomHitBox)) isDraggingZoomSlider = true;
+	if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) isDraggingZoomSlider = false;
+
+	if (isDraggingZoomSlider) {
+		float progress = Clamp((mousePos.x - zoomSliderBounds.x) / zoomSliderBounds.width, 0.0f, 1.0f);
+		zoomMultiplier = 0.2f + (progress * 1.8f); 
+	}
+}
+
+void DataStructureState::DrawSideMenuFrame(const std::vector<std::string>& labels)
+{
+	if (panelAnimProgress <= 0.0f) return; // Don't draw if the drawer is closed
+
+	float easedProgress = sin(panelAnimProgress * PI / 2.0f); 
+	float mainWidth = 125.0f, mainHeight = 45.0f, gap = 8.0f; 
+	float startX = controlBtnPos.x + (float)controlTex.width + 15.0f;
+	float startY = controlBtnPos.y; 
+	
+	BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight()); // Reveal the menu sliding from behind the gear
+	float panelX = startX - mainWidth * (1.0f - easedProgress);
+
+	// DYNAMIC LOOP: Draw as many buttons as the child requested
+	for (size_t i = 0; i < labels.size(); i++) {
+		float itemY = startY + (float)i * (mainHeight + gap);
+		bool isSelected = ((int)activeMainOp == (int)i + 1);
+
+		if (DrawButtonText({panelX, itemY}, labels[i].c_str(), mainWidth, mainHeight, isSelected)) {
+			// Toggle the operation slot
+			if (activeMainOp == (MainOp)(i + 1)) activeMainOp = OP_NONE; 
+			else activeMainOp = (MainOp)(i + 1);
+
+			inputErrorMsg = "";
+			inputErrorTimer = 0.0f;
+		}
+	}
+
+	// If a slot is active, let the child fill in the unique textboxes/labels
+	if (activeMainOp != OP_NONE) {
+		DrawSubMenuContent(); 
+	}
+
+	EndScissorMode();
+}
+
+void DataStructureState::drawSharedUI()
+{
+	Vector2 mousePos = GetMousePosition();
+	if (bg != nullptr) bg->Draw(mousePos);
+	if (homeBtn != nullptr) homeBtn->Draw(mousePos);
+
+	// Render animation speed slider
+	DrawTextEx(listFont, "Animation Speed", { speedSliderBounds.x, speedSliderBounds.y - 30.0f }, 22.0f, 1.0f, BLACK);
+	DrawRectangleRounded(speedSliderBounds, 1.0f, 8, LIGHTGRAY);
+	float fillWidth = ((animSpeedMultiplier - 0.2f) / 3.8f) * speedSliderBounds.width;
+	DrawRectangleRounded({ speedSliderBounds.x, speedSliderBounds.y, fillWidth, speedSliderBounds.height }, 1.0f, 8, SKYBLUE);
+	DrawCircle((int)(speedSliderBounds.x + fillWidth), (int)(speedSliderBounds.y + speedSliderBounds.height / 2.0f), 12.0f, DARKBLUE);
+	DrawTextEx(numberFont, TextFormat("%.1fx", animSpeedMultiplier), { speedSliderBounds.x + speedSliderBounds.width + 15.0f, speedSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
+
+	// Render zoom slider
+	DrawTextEx(listFont, "Zoom", { zoomSliderBounds.x, zoomSliderBounds.y - 30.0f }, 22.0f, 1.0f, BLACK);
+	DrawRectangleRounded(zoomSliderBounds, 1.0f, 8, LIGHTGRAY);
+	float zoomFillWidth = ((zoomMultiplier - 0.2f) / 1.8f) * zoomSliderBounds.width;
+	DrawRectangleRounded({ zoomSliderBounds.x, zoomSliderBounds.y, zoomFillWidth, zoomSliderBounds.height }, 1.0f, 8, SKYBLUE); 
+	DrawCircle((int)(zoomSliderBounds.x + zoomFillWidth), (int)(zoomSliderBounds.y + zoomSliderBounds.height / 2.0f), 12.0f, DARKBLUE);
+	DrawTextEx(numberFont, TextFormat("%d%%", (int)(zoomMultiplier * 100)), { zoomSliderBounds.x + zoomSliderBounds.width + 15.0f, zoomSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
+
+	// Render active error message if exists
+	if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f) {
+		float menuStartX = controlBtnPos.x + 75.0f + 15.0f; 
+		float errorY = controlBtnPos.y + ((currentErrorSlot) * (45.0f + 8.0f)) + 50.0f;
+		DrawTextEx(numberFont, inputErrorMsg.c_str(), { menuStartX + 135.0f, errorY }, 24.0f, 1.0f, RED);
+	}
+}
+
 void DataStructureState::updateControlPanel(float deltaTime, Vector2 mousePos)
 {
 	Rectangle bounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
@@ -104,33 +210,16 @@ void DataStructureState::updateControlPanel(float deltaTime, Vector2 mousePos)
 	}
 }
 
-// Shared input validation for text boxes
-bool DataStructureState::IsValidInputString(const std::string& text, bool isCreateInput)
+bool DataStructureState::CheckStepReady(float deltaTime, float stepDuration)
 {
-	if (isCreateInput && text.length() > 30) return false;
-	if (!text.empty() && text[0] == ',') return false;
-
-	int currentDigitCount = 0;
-	for (size_t i = 0; i < text.length(); i++) {
-		char c = text[i];
-		if (c == '-') {
-			if (i != 0 && text[i-1] != ',') return false;
-		}
-		else if (c == ',') {
-			if (!isCreateInput) return false;
-			if (i > 0 && text[i-1] == ',') return false;
-			currentDigitCount = 0; 
-		}
-		else if (c >= '0' && c <= '9') {
-			currentDigitCount++;
-			if (currentDigitCount > 4) return false; 
-		}
-		else return false; 
+	animTimer += deltaTime * animSpeedMultiplier;
+	if (animTimer >= stepDuration) {
+		animTimer = 0.0f;
+		return true;
 	}
-	return true;
+	return false;
 }
 
-// Shared text input handling for text boxes
 void DataStructureState::HandleTextInput(std::string& text, bool isCreateInput)
 {
 	if ((IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) && cursorIndex > 0) cursorIndex--;
@@ -166,80 +255,29 @@ void DataStructureState::HandleTextInput(std::string& text, bool isCreateInput)
 	}
 }
 
-void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
+bool DataStructureState::IsValidInputString(const std::string& text, bool isCreateInput)
 {
-	if (homeBtn != nullptr && homeBtn->isPressed(mousePos, IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) {
-		NextState = 0;
-		return;
+	if (isCreateInput && text.length() > 30) return false;
+	if (!text.empty() && text[0] == ',') return false;
+
+	int currentDigitCount = 0;
+	for (size_t i = 0; i < text.length(); i++) {
+		char c = text[i];
+		if (c == '-') {
+			if (i != 0 && text[i-1] != ',') return false;
+		}
+		else if (c == ',') {
+			if (!isCreateInput) return false;
+			if (i > 0 && text[i-1] == ',') return false;
+			currentDigitCount = 0; 
+		}
+		else if (c >= '0' && c <= '9') {
+			currentDigitCount++;
+			if (currentDigitCount > 4) return false; 
+		}
+		else return false; 
 	}
-
-	if (isAnimating && CheckStepReady(deltaTime, 0.7f)) {
-		handleAnimationStep(); 
-	}
-
-	// Sliders logic
-	Rectangle speedSliderHitBox = { speedSliderBounds.x, speedSliderBounds.y - 15.0f, speedSliderBounds.width, 40.0f };
-	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, speedSliderHitBox)) isDraggingSpeedSlider = true;
-	if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) isDraggingSpeedSlider = false;
-
-	if (isDraggingSpeedSlider) {
-		float progress = Clamp((mousePos.x - speedSliderBounds.x) / speedSliderBounds.width, 0.0f, 1.0f);
-		animSpeedMultiplier = 0.2f + (progress * 3.8f); 
-	}
-
-	if (inputErrorTimer > 0.0f) {
-		inputErrorTimer -= deltaTime;
-		if (inputErrorTimer <= 0.0f) inputErrorMsg = "";
-	}
-
-	Rectangle zoomHitBox = { zoomSliderBounds.x, zoomSliderBounds.y - 15.0f, zoomSliderBounds.width, 40.0f };
-	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(mousePos, zoomHitBox)) isDraggingZoomSlider = true;
-	if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) isDraggingZoomSlider = false;
-
-	if (isDraggingZoomSlider) {
-		float progress = Clamp((mousePos.x - zoomSliderBounds.x) / zoomSliderBounds.width, 0.0f, 1.0f);
-		zoomMultiplier = 0.2f + (progress * 1.8f); 
-	}
-}
-
-void DataStructureState::drawSharedUI()
-{
-	Vector2 mousePos = GetMousePosition();
-	if (bg != nullptr) bg->Draw(mousePos);
-	if (homeBtn != nullptr) homeBtn->Draw(mousePos);
-
-	// Render sliders
-	DrawTextEx(listFont, "Animation Speed", { speedSliderBounds.x, speedSliderBounds.y - 30.0f }, 22.0f, 1.0f, BLACK);
-	DrawRectangleRounded(speedSliderBounds, 1.0f, 8, LIGHTGRAY);
-	float fillWidth = ((animSpeedMultiplier - 0.2f) / 3.8f) * speedSliderBounds.width;
-	DrawRectangleRounded({ speedSliderBounds.x, speedSliderBounds.y, fillWidth, speedSliderBounds.height }, 1.0f, 8, SKYBLUE);
-	DrawCircle((int)(speedSliderBounds.x + fillWidth), (int)(speedSliderBounds.y + speedSliderBounds.height / 2.0f), 12.0f, DARKBLUE);
-	DrawTextEx(numberFont, TextFormat("%.1fx", animSpeedMultiplier), { speedSliderBounds.x + speedSliderBounds.width + 15.0f, speedSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
-
-	DrawTextEx(listFont, "Zoom", { zoomSliderBounds.x, zoomSliderBounds.y - 30.0f }, 22.0f, 1.0f, BLACK);
-	DrawRectangleRounded(zoomSliderBounds, 1.0f, 8, LIGHTGRAY);
-	float zoomFillWidth = ((zoomMultiplier - 0.2f) / 1.8f) * zoomSliderBounds.width;
-	DrawRectangleRounded({ zoomSliderBounds.x, zoomSliderBounds.y, zoomFillWidth, zoomSliderBounds.height }, 1.0f, 8, SKYBLUE); 
-	DrawCircle((int)(zoomSliderBounds.x + zoomFillWidth), (int)(zoomSliderBounds.y + zoomSliderBounds.height / 2.0f), 12.0f, DARKBLUE);
-	DrawTextEx(numberFont, TextFormat("%d%%", (int)(zoomMultiplier * 100)), { zoomSliderBounds.x + zoomSliderBounds.width + 15.0f, zoomSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
-
-	// Error message
-	if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f) {
-		float menuStartX = 30.0f + 75.0f + 15.0f; 
-		float menuStartY = 750.0f;
-		float errorY = menuStartY + (currentErrorSlot * (45.0f + 8.0f)) + 50.0f;
-		DrawTextEx(numberFont, inputErrorMsg.c_str(), { menuStartX + 135.0f, errorY }, 24.0f, 1.0f, RED);
-	}
-}
-
-bool DataStructureState::CheckStepReady(float deltaTime, float stepDuration)
-{
-	animTimer += deltaTime * animSpeedMultiplier;
-	if (animTimer >= stepDuration) {
-		animTimer = 0.0f;
-		return true;
-	}
-	return false;
+	return true;
 }
 
 bool DataStructureState::DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected)
@@ -307,4 +345,14 @@ void DataStructureState::DrawLabel(Vector2 pos, const char* text)
 {
 	float fontSize = 22.0f;
 	DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
+}
+
+void DataStructureState::update(float deltaTime) 
+{
+
+}
+
+void DataStructureState::draw() 
+{
+
 }

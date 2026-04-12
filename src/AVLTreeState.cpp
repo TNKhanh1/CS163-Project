@@ -34,3 +34,13 @@ void AVLTreeState::draw()
     DrawTextEx(listFont, titleText, { (1800.0f - titleSize.x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
 }
+
+void AVLTreeState::DrawSubMenuContent()
+{
+
+}
+
+void AVLTreeState::onExecuteOp(MainOp op)
+{
+
+}

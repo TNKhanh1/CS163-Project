@@ -33,17 +33,20 @@ public:
 	void draw() override;
 
 protected:
+	// Implementation of DataStructureState hooks
 	void handleAnimationStep() override;
+	void DrawSubMenuContent() override;
+	void onExecuteOp(MainOp op) override;
 
 private:
-    // Linked list data
+	// Linked list data
 	LLNode* head;
 	float startX, startY;
 	float nodeSpacing, nodeRadius;
 
 	// Menu state
-	ActiveSubPanel activeSubPanel;
-	ActiveInput activeInput, previousActiveInput;
+	int activeInputFocus; // -1: None, 0: Create, 1: Search, 2: InsIdx, 3: InsVal, 4: DelIdx
+	int previousInputFocus;
 	bool isCreateUserDefOpen;
 
     // LL anim

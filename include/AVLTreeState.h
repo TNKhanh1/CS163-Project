@@ -13,6 +13,10 @@ public:
     void update(float deltaTime) override;
     void draw() override;
 
+protected:
+	void DrawSubMenuContent() override;
+	void onExecuteOp(MainOp op) override;
+    
 private:
 
 };
