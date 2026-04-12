@@ -15,64 +15,51 @@ enum ActiveInput { INP_NONE, INP_CREATE, INP_SEARCH, INP_INSERT_IDX, INP_INSERT_
 enum PendingTask { TASK_NONE, TASK_SEARCH, TASK_INSERT_INDEX, TASK_DELETE_INDEX };
 
 struct LLNode {
-    int value;
-    Vector2 position;
-    Vector2 targetPosition;
-    LLNode* next;
-    Color color;
+	int value;
+	Vector2 position;
+	Vector2 targetPosition;
+	LLNode* next;
+	Color color;
 };
 
 class LinkedListState : public DataStructureState 
 {
 public:
-    LinkedListState();
-    ~LinkedListState();
+	LinkedListState();
+	~LinkedListState();
 
-    void loadAssets() override;
-    void update(float deltaTime) override;
-    void draw() override;
+	void loadAssets() override;
+	void update(float deltaTime) override;
+	void draw() override;
+
+protected:
+	void handleAnimationStep() override;
 
 private:
     // Linked list data
-    LLNode* head;
-    float startX, startY;
-    float nodeSpacing, nodeRadius;
+	LLNode* head;
+	float startX, startY;
+	float nodeSpacing, nodeRadius;
 
-    //Các biến trạng thái cho UI Control Panel
-    Texture2D controlTex;
-    Vector2 controlBtnPos;
-    Vector2 dragOffset;
-    bool isDraggingControlBtn, isClickingControlBtn, isPanelOpen;
-    float panelAnimProgress;
-    
-    ActiveSubPanel activeSubPanel;
-    ActiveInput activeInput, previousActiveInput;
-    bool isCreateUserDefOpen;
-
-    // Textbox state
-    std::string inputCreate, inputSearch, inputInsertIdx, inputInsertVal, inputDeleteIdx;
-    int cursorIndex;
-    float cursorBlinkTimer, textScrollX;
-    bool cursorVisible;
+	// Menu state
+	ActiveSubPanel activeSubPanel;
+	ActiveInput activeInput, previousActiveInput;
+	bool isCreateUserDefOpen;
 
     // LL anim
-    LLNode* searchPointer;
-    int searchTargetValue, searchTargetIndex, searchCurrentIndex;
-    PendingTask currentTask;
+	LLNode* searchPointer;
+	int searchTargetValue, searchTargetIndex, searchCurrentIndex;
+	PendingTask currentTask;
+	float previousZoomMultiplier;
 
-    float previousZoomMultiplier;
     // Helper functions for linked list operations and UI
-    void insertNode(int value);
-    void insertNodeAtIndex(int index, int value);
-    void deleteNodeAtIndex(int index);
-    void searchNode(int value);
-    void clearList();
-    void updateTargetPositions();
-    void resetNodeColors();
-    
-    bool IsValidInputString(const std::string& str, ActiveInput type);
-    void HandleTextInput(std::string& text, ActiveInput type);
-    bool DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected = false);
-    bool DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height);
-    void DrawLabel(Vector2 pos, const char* text);
+	void insertNode(int value);
+	void insertNodeAtIndex(int index, int value);
+	void deleteNodeAtIndex(int index);
+	void searchNode(int value);
+	void clearList();
+	void updateTargetPositions();
+	void resetNodeColors();
+	
+	// NOTE: IsValidInputString and HandleTextInput were REMOVED because they are now inherited from DataStructureState.
 };

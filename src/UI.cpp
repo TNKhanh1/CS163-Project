@@ -121,7 +121,7 @@ void button::Draw(Vector2 mousePos)
 
 bool button::isPressed(Vector2 mousePos, bool mousePressed)
 {
-    Rectangle rect = {position.x, position.y, static_cast<double>(texture.width), static_cast<double>(texture.height)};
+    Rectangle rect = { position.x, position.y, (float)texture.width, (float)texture.height };
     if (CheckCollisionPointRec(mousePos, rect) && mousePressed) return true;
     return false;
 }

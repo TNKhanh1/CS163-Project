@@ -21,11 +21,12 @@ void AVLTreeState::update(float deltaTime)
     
     DataStructureState::updateSharedUI(deltaTime, mousePos);
 
+    DataStructureState::updateControlPanel(deltaTime, mousePos);
+
 }
 
 void AVLTreeState::draw()
 {
-    ClearBackground(RAYWHITE);
     DataStructureState::drawSharedUI();
 
     const char* titleText = "AVL TREE";

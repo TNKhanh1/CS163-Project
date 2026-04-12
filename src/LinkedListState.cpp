@@ -13,234 +13,44 @@ LinkedListState::LinkedListState() : DataStructureState()
 
 	NextState = (int)LinkedList;
 
-	//Khởi tạo trạng thái UI 
-	controlBtnPos = { 30.0f, 750.0f }; 
-	isDraggingControlBtn = false;
-	isClickingControlBtn = false;
-	isPanelOpen = false;
-	panelAnimProgress = 0.0f;
 	activeSubPanel = SUB_NONE;
 	activeInput = INP_NONE;
 	previousActiveInput = INP_NONE;
 	isCreateUserDefOpen = false;
 
-	// Khởi tạo TextBox state
-	cursorIndex = 0;
-	cursorBlinkTimer = 0.0f;
-	cursorVisible = true;
-	textScrollX = 0.0f;
-
-	// Initialize Animation State
 	searchPointer = nullptr;
 	currentTask = TASK_NONE;
-	isAnimating = false;
-
 	previousZoomMultiplier = 1.0f;
 }
 
 LinkedListState::~LinkedListState()
 {
 	clearList();
-	UnloadTexture(controlTex); 
 }
 
 void LinkedListState::loadAssets()
 {
-	// Load shared assets via base class (Background, Home Button, Fonts)
+	// Base class now handles Background, Home Button, Fonts, and Control Texture
 	DataStructureState::loadAssets(); 
-
-	Image ctrlImg = LoadImage("assets/control.png");
-	ImageResize(&ctrlImg, 75, 75); 
-	controlTex = LoadTextureFromImage(ctrlImg);
-	UnloadImage(ctrlImg);
 }
-
-// LOGIC TEXTBOX
-bool LinkedListState::IsValidInputString(const std::string& str, ActiveInput type)
-{
-	if (type == INP_CREATE && str.length() > 30) return false;
-
-	if (!str.empty() && str[0] == ',') return false;
-
-	int currentDigitCount = 0;
-	for (size_t i = 0; i < str.length(); i++)
-	{
-		char c = str[i];
-		if (c == '-') {
-			if (i != 0 && str[i-1] != ',') return false;
-		}
-		else if (c == ',') {
-			if (type != INP_CREATE) return false;
-
-			if (i > 0 && str[i-1] == ',') return false;
-
-			currentDigitCount = 0; 
-		}
-		else if (c >= '0' && c <= '9') {
-			currentDigitCount++;
-			if (currentDigitCount > 4) return false; 
-		}
-		else {
-            return false; 
-        }
-	}
-	return true;
-}
-
-void LinkedListState::HandleTextInput(std::string& text, ActiveInput type)
-{
-	if ((IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) && cursorIndex > 0) cursorIndex--;
-	if ((IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) && cursorIndex < (int)text.length()) cursorIndex++;
-
-	if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_LEFT) || IsKeyPressedRepeat(KEY_RIGHT)) {
-		cursorVisible = true; cursorBlinkTimer = 0.0f;
-	}
-
-	if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
-		if (cursorIndex > 0) {
-			text.erase(cursorIndex - 1, 1);
-			cursorIndex--;
-			cursorVisible = true; cursorBlinkTimer = 0.0f;
-		}
-	}
-	if (IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE)) {
-		if (cursorIndex < (int)text.length()) {
-			text.erase(cursorIndex, 1);
-			cursorVisible = true; cursorBlinkTimer = 0.0f;
-		}
-	}
-
-    //Quét Phím Vật Lý
-    int keyCode = GetKeyPressed();
-	while (keyCode > 0) 
-	{
-		char charToAdd = 0;
-
-		if (keyCode >= KEY_ZERO && keyCode <= KEY_NINE) charToAdd = '0' + (keyCode - KEY_ZERO);
-		else if (keyCode >= KEY_KP_0 && keyCode <= KEY_KP_9) charToAdd = '0' + (keyCode - KEY_KP_0);
-		else if (keyCode == KEY_MINUS || keyCode == KEY_KP_SUBTRACT) charToAdd = '-';
-		else if (keyCode == KEY_COMMA) charToAdd = ',';
-		
-		if (charToAdd != 0) {
-			std::string temp = text;
-			temp.insert(cursorIndex, 1, charToAdd);
-
-			if (IsValidInputString(temp, type)) {
-				text = temp;
-				cursorIndex++;
-				cursorVisible = true; cursorBlinkTimer = 0.0f;
-			}
-		}
-		keyCode = GetKeyPressed();
-	}
-	while (GetCharPressed() > 0) {} 
-}
-
 
 void LinkedListState::update(float deltaTime)
 {
 	Vector2 mousePos = GetMousePosition();
 	
-	// 1. Update base UI (interactions, speed slider, error messages)
+	// 1. Update shared UI logic
 	DataStructureState::updateSharedUI(deltaTime, mousePos);
+	DataStructureState::updateControlPanel(deltaTime, mousePos);
 
 	if (zoomMultiplier != previousZoomMultiplier) {
 		updateTargetPositions();
 		previousZoomMultiplier = zoomMultiplier;
 	}
 
-	// 2. Traversal animation logic
-	if (isAnimating) {
-		// Use CheckStepReady from base class to control speed via the slider
-		if (DataStructureState::CheckStepReady(deltaTime, 0.7f)) {
-			
-			if (currentTask == TASK_SEARCH) {
-				if (searchPointer) {
-					if (searchPointer->value == searchTargetValue) {
-						searchPointer->color = ORANGE; 
-						isAnimating = false;
-					} else {
-						searchPointer->color = LIGHTGRAY; 
-						searchPointer = searchPointer->next;
-						if (searchPointer) searchPointer->color = YELLOW;
-						else {
-							inputErrorMsg = "Value not found!";
-							inputErrorTimer = 2.5f;
-							isAnimating = false;
-						}
-					}
-				}
-			} 
-			else if (currentTask == TASK_DELETE_INDEX || currentTask == TASK_INSERT_INDEX) {
-				if (searchCurrentIndex < searchTargetIndex - 1 && searchPointer && searchPointer->next) {
-					searchPointer->color = LIGHTGRAY;
-					searchPointer = searchPointer->next;
-					if (searchPointer) searchPointer->color = YELLOW;
-					searchCurrentIndex++;
-				} else {
-					if (currentTask == TASK_DELETE_INDEX && searchPointer && searchPointer->next) {
-						LLNode* toDelete = searchPointer->next;
-						searchPointer->next = toDelete->next;
-						delete toDelete;
-					} 
-					else if (currentTask == TASK_INSERT_INDEX && searchPointer) {
-						LLNode* newNode = new LLNode{searchTargetValue, {startX, startY - 200}, {0,0}, searchPointer->next, SKYBLUE};
-						searchPointer->next = newNode;
-					}
-					updateTargetPositions();
-					isAnimating = false;
-					resetNodeColors();
-				}
-			}
-		}
-	}
-
-	// 3. Control panel button logic
-	Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
-	
-	if (CheckCollisionPointRec(mousePos, controlBtnBounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-		isDraggingControlBtn = true;
-		isClickingControlBtn = true; 
-		dragOffset = { mousePos.x - controlBtnPos.x, mousePos.y - controlBtnPos.y };
-	}
-
-	if (isDraggingControlBtn) {
-		if (isClickingControlBtn && Vector2Distance(mousePos, {controlBtnPos.x + dragOffset.x, controlBtnPos.y + dragOffset.y}) > 3.0f) {
-			isClickingControlBtn = false; 
-		}
-		controlBtnPos.x = mousePos.x - dragOffset.x;
-		controlBtnPos.y = mousePos.y - dragOffset.y;
-	}
-
-	if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-		if (isDraggingControlBtn) {
-			isDraggingControlBtn = false; 
-			if (isClickingControlBtn && CheckCollisionPointRec(mousePos, controlBtnBounds)) {
-				isPanelOpen = !isPanelOpen; 
-			}
-		}
-		isClickingControlBtn = false; 
-	}
-
-	float animSpeed = 4.0f; 
-	if (isPanelOpen) {
-		panelAnimProgress += deltaTime * animSpeed;
-		if (panelAnimProgress > 1.0f) panelAnimProgress = 1.0f;
-	} else {
-		panelAnimProgress -= deltaTime * animSpeed;
-		if (panelAnimProgress < 0.0f) {
-			panelAnimProgress = 0.0f; activeSubPanel = SUB_NONE; 
-		}
-	}
-
-    //Cập nhật Textbox & Con trỏ
+	// 2. Input Handling using inherited inputBuffers
 	if (activeInput != previousActiveInput) {
-		if (activeInput == INP_CREATE) cursorIndex = inputCreate.length();
-		else if (activeInput == INP_SEARCH) cursorIndex = inputSearch.length();
-		else if (activeInput == INP_INSERT_IDX) cursorIndex = inputInsertIdx.length();
-		else if (activeInput == INP_INSERT_VAL) cursorIndex = inputInsertVal.length();
-		else if (activeInput == INP_DELETE_IDX) cursorIndex = inputDeleteIdx.length();
-		
+	
+		cursorIndex = (activeInput == INP_NONE) ? 0 : inputBuffers[activeInput - 1].length();
 		textScrollX = 0.0f; 
 		cursorBlinkTimer = 0.0f;
 		cursorVisible = true;
@@ -248,150 +58,135 @@ void LinkedListState::update(float deltaTime)
 	}
 
 	if (activeInput != INP_NONE) {
-		cursorBlinkTimer += deltaTime;
-		if (cursorBlinkTimer >= 0.5f) { 
-			cursorVisible = !cursorVisible;
-			cursorBlinkTimer = 0.0f;
-		}
-
-		if (activeInput == INP_CREATE) HandleTextInput(inputCreate, activeInput);
-		else if (activeInput == INP_SEARCH) HandleTextInput(inputSearch, activeInput);
-		else if (activeInput == INP_INSERT_IDX) HandleTextInput(inputInsertIdx, activeInput);
-		else if (activeInput == INP_INSERT_VAL) HandleTextInput(inputInsertVal, activeInput);
-		else if (activeInput == INP_DELETE_IDX) HandleTextInput(inputDeleteIdx, activeInput);
+		HandleTextInput(inputBuffers[activeInput - 1], (activeInput == INP_CREATE));
 		
 		if (IsKeyPressed(KEY_ENTER)) {
 			try {
-				if (activeInput == INP_CREATE && !inputCreate.empty()) {
-					insertNode(std::stoi(inputCreate)); 
-                    					inputCreate.clear();
-				}
-				else if (activeInput == INP_SEARCH && !inputSearch.empty()) {
-					searchNode(std::stoi(inputSearch));
-					inputSearch.clear();
-				}
-				else if ((activeInput == INP_INSERT_VAL || activeInput == INP_INSERT_IDX) 
-						 && !inputInsertIdx.empty() && !inputInsertVal.empty()) {
-					insertNodeAtIndex(std::stoi(inputInsertIdx), std::stoi(inputInsertVal));
-					inputInsertIdx.clear(); 
-					inputInsertVal.clear();
-				}
-				else if (activeInput == INP_DELETE_IDX && !inputDeleteIdx.empty()) {
-					deleteNodeAtIndex(std::stoi(inputDeleteIdx));
-					inputDeleteIdx.clear();
+				int idx = activeInput - 1;
+				switch (activeInput) {
+					case INP_CREATE: 
+						if (!inputBuffers[idx].empty()) { insertNode(std::stoi(inputBuffers[idx])); inputBuffers[idx].clear(); }
+						break;
+					case INP_SEARCH:
+						if (!inputBuffers[idx].empty()) { searchNode(std::stoi(inputBuffers[idx])); inputBuffers[idx].clear(); }
+						break;
+					case INP_INSERT_IDX:
+					case INP_INSERT_VAL:
+						if (!inputBuffers[2].empty() && !inputBuffers[3].empty()) {
+							insertNodeAtIndex(std::stoi(inputBuffers[2]), std::stoi(inputBuffers[3]));
+							inputBuffers[2].clear(); inputBuffers[3].clear();
+						}
+						break;
+					case INP_DELETE_IDX:
+						if (!inputBuffers[idx].empty()) { deleteNodeAtIndex(std::stoi(inputBuffers[idx])); inputBuffers[idx].clear(); }
+						break;
+					default: break;
 				}
 			} catch (...) {}
 			activeInput = INP_NONE;
 		}
 	}
 
-	// 5. Node movement animation towards target positions
-	float moveSpeed = 8.0f;
+	// 3. Node movement animation
 	LLNode* currentAnim = head;
 	while (currentAnim != nullptr) 
 	{
-		currentAnim->position.x = Lerp(currentAnim->position.x, currentAnim->targetPosition.x, deltaTime * moveSpeed);
-		currentAnim->position.y = Lerp(currentAnim->position.y, currentAnim->targetPosition.y, deltaTime * moveSpeed);
+		currentAnim->position = Vector2Lerp(currentAnim->position, currentAnim->targetPosition, deltaTime * 8.0f);
 		currentAnim = currentAnim->next;
 	}
 }
 
-// CÁC HÀM HỖ TRỢ VẼ UI
-bool LinkedListState::DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected)
+void LinkedListState::handleAnimationStep()
 {
-	Rectangle bounds = {pos.x, pos.y, width, height};
-	bool isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
-	
-	Color bgColor = (isHovered || isSelected) ? BLACK : Color{ 102, 191, 255, 255 }; 
-	DrawRectangleRec(bounds, bgColor);
-
-	float fontSize = 22.0f;
-	Vector2 textSize = MeasureTextEx(listFont, text, fontSize, 1.0f);
-	Vector2 textPos = { pos.x + (width - textSize.x) / 2.0f, pos.y + (height - textSize.y) / 2.0f };
-	DrawTextEx(listFont, text, textPos, fontSize, 1.0f, WHITE);
-	
-	return (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON));
-}
-
-bool LinkedListState::DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height)
-{
-	Rectangle bounds = { pos.x, pos.y, width, height };
-	bool isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
-
-	DrawRectangleRec(bounds, BLACK); 
-	DrawRectangleLinesEx(bounds, 2.0f, isActive ? RED : DARKGRAY); 
-
-	float fontSize = 22.0f; 
-	float padding = 8.0f;
-	float textHeight = MeasureTextEx(numberFont, "0", fontSize, 1.0f).y; 
-	float textDrawY = pos.y + (height - textHeight) / 2.0f; 
-	
-    // Tính toán cuộn ngang
-    if (isActive) {
-		std::string textBeforeCursor = text.substr(0, cursorIndex);
-		float cursorOffsetX = MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
-		float maxVisibleWidth = width - (padding * 2);
-
-		if (cursorOffsetX - textScrollX > maxVisibleWidth) {
-			textScrollX = cursorOffsetX - maxVisibleWidth;
-		} 
-		else if (cursorOffsetX - textScrollX < 0) {
-			textScrollX = cursorOffsetX;
+	if (currentTask == TASK_SEARCH && searchPointer) {
+		if (searchPointer->value == searchTargetValue) {
+			searchPointer->color = ORANGE; 
+			isAnimating = false;
+		} else {
+			searchPointer->color = LIGHTGRAY; 
+			searchPointer = searchPointer->next;
+			if (searchPointer) searchPointer->color = YELLOW;
+			else {
+				currentErrorSlot = 2; // SEARCH row
+				inputErrorMsg = "Value not found!";
+				inputErrorTimer = 2.5f;
+				isAnimating = false;
+			}
 		}
-	} else {
-		textScrollX = 0; 
+	} 
+	else if (currentTask == TASK_DELETE_INDEX || currentTask == TASK_INSERT_INDEX) {
+		if (searchCurrentIndex < searchTargetIndex - 1 && searchPointer && searchPointer->next) {
+			searchPointer->color = LIGHTGRAY;
+			searchPointer = searchPointer->next;
+			if (searchPointer) searchPointer->color = YELLOW;
+			searchCurrentIndex++;
+		} else {
+			if (currentTask == TASK_DELETE_INDEX) {
+				if (searchCurrentIndex == searchTargetIndex - 1 && searchPointer && searchPointer->next) {
+					LLNode* toDelete = searchPointer->next;
+					searchPointer->next = toDelete->next;
+					delete toDelete;
+				} else {
+					currentErrorSlot = 3; // DELETE row
+					inputErrorMsg = "Index out of bounds!";
+					inputErrorTimer = 2.5f;
+				}
+			} 
+			else if (currentTask == TASK_INSERT_INDEX) {
+				if (searchCurrentIndex == searchTargetIndex - 1 && searchPointer) {
+					LLNode* newNode = new LLNode{searchTargetValue, {startX, startY - 200}, {0,0}, searchPointer->next, SKYBLUE};
+					searchPointer->next = newNode;
+				} else {
+					currentErrorSlot = 1; // INSERT row
+					inputErrorMsg = "Index out of bounds!";
+					inputErrorTimer = 2.5f;
+				}
+			}
+			updateTargetPositions();
+			isAnimating = false;
+			resetNodeColors();
+		}
 	}
-
-    // VẼ CHỮ VÀ CON TRỎ BẰNG NUMBER FONT
-    BeginScissorMode((int)pos.x, (int)pos.y, (int)width, (int)height);
-	
-	Vector2 textPos = { pos.x + padding - textScrollX, textDrawY };
-	DrawTextEx(numberFont, text.c_str(), textPos, fontSize, 1.0f, WHITE);
-
-	if (isActive && cursorVisible) {
-		std::string textBeforeCursor = text.substr(0, cursorIndex);
-		float cursorX = pos.x + padding - textScrollX + MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
-		DrawLineEx({cursorX, textDrawY}, {cursorX, textDrawY + textHeight}, 2.0f, WHITE);
-	}
-
-	EndScissorMode();
-
-    // KHÔI PHỤC SCISSOR MODE CỦA MENU CHÍNH
-    	float startX = controlBtnPos.x + controlTex.width + 15.0f;
-	BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-
-	if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) return true; 
-	return false;
-}
-
-
-void LinkedListState::DrawLabel(Vector2 pos, const char* text)
-{
-	float fontSize = 22.0f;
-	DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
 }
 
 void LinkedListState::draw()
 {
-	// Draw base UI (background, home button, speed slider, error messages)
 	DataStructureState::drawSharedUI();
 
 	const char* titleText = "SINGLY LINKED LIST";
 	DrawTextEx(listFont, titleText, { (1800.0f - MeasureTextEx(listFont, titleText, 55, 6.5f).x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
 	float currentRadius = nodeRadius * zoomMultiplier;
-	// Draw the linked list
 	LLNode* curr = head;
 	while (curr != nullptr) 
 	{
+		// 1. Draw HEAD Indicator
+		if (curr == head) {
+			float headLabelY = curr->position.y - currentRadius - (45.0f * zoomMultiplier);
+			const char* headText = "HEAD";
+			float headFontSize = 22.0f * zoomMultiplier;
+			Vector2 headTextSize = MeasureTextEx(numberFont, headText, headFontSize, 1.0f);
+			DrawTextEx(numberFont, headText, { curr->position.x - headTextSize.x / 2.0f, headLabelY }, headFontSize, 1.0f, DARKGREEN);
+			DrawLineEx({curr->position.x, headLabelY + headTextSize.y}, {curr->position.x, curr->position.y - currentRadius - 5}, 2.0f * zoomMultiplier, DARKGREEN);
+		}
+
+		// 2. Draw TAIL Indicator
+		if (curr->next == nullptr) {
+			float tailOffset = (curr == head) ? (65.0f * zoomMultiplier) : (45.0f * zoomMultiplier);
+			float tailLabelY = curr->position.y + currentRadius + tailOffset - (20.0f * zoomMultiplier);
+			const char* tailText = "TAIL";
+			float tailFontSize = 22.0f * zoomMultiplier;
+			Vector2 tailTextSize = MeasureTextEx(numberFont, tailText, tailFontSize, 1.0f);
+			DrawTextEx(numberFont, tailText, { curr->position.x - tailTextSize.x / 2.0f, tailLabelY }, tailFontSize, 1.0f, MAROON);
+			DrawLineEx({curr->position.x, tailLabelY - 5}, {curr->position.x, curr->position.y + currentRadius + 5}, 2.0f * zoomMultiplier, MAROON);
+		}
+
+		// 3. Draw Connection Lines
 		if (curr->next != nullptr) 
 		{
 			Vector2 startPos = { curr->position.x + currentRadius, curr->position.y };
 			Vector2 endPos = { curr->next->position.x - currentRadius, curr->next->position.y };
-			
-			float lineThickness = 3.0f * zoomMultiplier;
-			if (lineThickness < 1.0f) lineThickness = 1.0f;
-			DrawLineEx(startPos, endPos, lineThickness, DARKGRAY);
+			DrawLineEx(startPos, endPos, fmaxf(1.0f, 3.0f * zoomMultiplier), DARKGRAY);
 			
 			float arrowSize = 12.0f * zoomMultiplier;
 			DrawTriangle(endPos, 
@@ -406,217 +201,119 @@ void LinkedListState::draw()
 		float scaledFontSize = 25.0f * zoomMultiplier;
 		const char* valText = TextFormat("%d", curr->value);
 		Vector2 tSize = MeasureTextEx(numberFont, valText, scaledFontSize, 1.0f);
-		Vector2 tPos = { curr->position.x - tSize.x / 2.0f, curr->position.y - tSize.y / 2.0f };
-		
-		DrawTextEx(numberFont, valText, tPos, scaledFontSize, 1.0f, WHITE);
+		DrawTextEx(numberFont, valText, { curr->position.x - tSize.x / 2.0f, curr->position.y - tSize.y / 2.0f }, scaledFontSize, 1.0f, WHITE);
 		
 		curr = curr->next;
 	}
 
-	// Draw Control Panel
-	Vector2 mousePos = GetMousePosition();
-	Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
-	
-	// Kiểm tra nếu chuột nằm trong khu vực nút thì làm mờ 30% (còn 0.7f), ngược lại giữ nguyên
-	Color controlColor = CheckCollisionPointRec(mousePos, controlBtnBounds) ? Fade(WHITE, 0.7f) : WHITE;
-	
-	DrawTextureV(controlTex, controlBtnPos, controlColor);
+	// 4. Control Panel UI
+	DrawTextureV(controlTex, controlBtnPos, WHITE);
 	if (panelAnimProgress > 0.0f) 
 	{
 		float easedProgress = sin(panelAnimProgress * PI / 2.0f); 
-
-		float mainItemWidth = 125.0f; 
-		float mainItemHeight = 45.0f;
-		float gap = 8.0f; 
-
-		float startX = controlBtnPos.x + controlTex.width + 15.0f;
+		float mainWidth = 125.0f, mainHeight = 45.0f, gap = 8.0f; 
+		float startX = controlBtnPos.x + (float)controlTex.width + 15.0f;
 		float startY = controlBtnPos.y; 
 		
 		BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-		float panelX = startX - mainItemWidth * (1.0f - easedProgress);
+		float panelX = startX - mainWidth * (1.0f - easedProgress);
 
-		const char* mainItems[] = {"Create", "Insert", "Search", "Delete"};
-		ActiveSubPanel itemSubPanels[] = {SUB_CREATE, SUB_INSERT, SUB_SEARCH, SUB_DELETE};
+		const char* labels[] = {"Create", "Insert", "Search", "Delete"};
+		ActiveSubPanel subPanels[] = {SUB_CREATE, SUB_INSERT, SUB_SEARCH, SUB_DELETE};
 
 		for (int i = 0; i < 4; i++) {
-			float itemY = startY + i * (mainItemHeight + gap);
-			bool isSelected = (activeSubPanel == itemSubPanels[i]);
-
-			bool isClicked = DrawButtonText({panelX, itemY}, mainItems[i], mainItemWidth, mainItemHeight, isSelected);
-
-			if (isClicked && panelAnimProgress >= 1.0f) {
-				if (activeSubPanel == itemSubPanels[i]) activeSubPanel = SUB_NONE; 
-				else { activeSubPanel = itemSubPanels[i]; isCreateUserDefOpen = false; }
+			float itemY = startY + i * (mainHeight + gap);
+			if (DrawButtonText({panelX, itemY}, labels[i], mainWidth, mainHeight, (activeSubPanel == subPanels[i]))) {
+				if (activeSubPanel == subPanels[i]) activeSubPanel = SUB_NONE; 
+				else { activeSubPanel = subPanels[i]; isCreateUserDefOpen = false; }
 			}
 		}
 
-		if (activeSubPanel != SUB_NONE) 
+		float subX = panelX + mainWidth + gap; 
+		switch (activeSubPanel) 
 		{
-			float subX = panelX + mainItemWidth + gap; 
-			float labelFontSize = 22.0f; 
-
-			if (activeSubPanel == SUB_CREATE) {
-				float sy = startY + 0 * (mainItemHeight + gap); 
-				float cx = subX;
-
-				if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { 
+			case SUB_CREATE: {
+				float sy = startY; 
+				if (DrawButtonText({subX, sy}, "Empty", 90, mainHeight, false)) clearList();
+				if (DrawButtonText({subX + 98, sy}, "User Defined", 160, mainHeight, isCreateUserDefOpen)) isCreateUserDefOpen = !isCreateUserDefOpen; 
+				if (DrawButtonText({subX + 266, sy}, "Random", 110, mainHeight, false)) { 
 					clearList();
+					int n = GetRandomValue(1, 9); 
+					for(int i = 0; i < n; i++) insertNode(GetRandomValue(1, 99));
 				}
-				cx += 90 + gap;
-
-				if (DrawButtonText({cx, sy}, "User Defined List", 230, mainItemHeight, isCreateUserDefOpen)) {
-					isCreateUserDefOpen = !isCreateUserDefOpen; 
-				}
-				cx += 230 + gap;
-
-				if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
-					clearList();
-					int NumNode = GetRandomValue(1, 9);
-					for(int i = 0; i < NumNode; i++) {
-						insertNode(GetRandomValue(1, 99));
-					}
-				}
-
 				if (isCreateUserDefOpen) {
-					float ud_sx = subX + 90 + gap;
-					float ud_sy = sy + mainItemHeight + gap;
-
-					if (DrawTextBox({ud_sx, ud_sy}, inputCreate, activeInput == INP_CREATE, 230, mainItemHeight)) {
-						activeInput = INP_CREATE;
-					}
-					ud_sx += 230 + gap;
-					if (DrawButtonText({ud_sx, ud_sy}, "GO", 50, mainItemHeight)) {
-						if (!inputCreate.empty()) {
+					if (DrawTextBox({subX + 98, sy + mainHeight + gap}, inputBuffers[0], activeInput == INP_CREATE, 230, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_CREATE;
+					if (DrawButtonText({subX + 336, sy + mainHeight + gap}, "GO", 50, mainHeight, false)) {
+						if (!inputBuffers[0].empty()) {
 							clearList();                           
 							std::string temp = "";
-							for (char c : inputCreate) {
-								if (c == ',') {
-									if (!temp.empty()) {
-										insertNode(std::stoi(temp));
-										temp = "";
-									}
-								} else {
-									temp += c;
-								}
+							for (char c : inputBuffers[0]) {
+								if (c == ',') { if (!temp.empty()) { insertNode(std::stoi(temp)); temp = ""; } } 
+								else { temp += c; }
 							}
 							if (!temp.empty()) insertNode(std::stoi(temp));
-							inputCreate.clear();
-							activeInput = INP_NONE;
-							isCreateUserDefOpen = false;
+							inputBuffers[0].clear(); activeInput = INP_NONE; isCreateUserDefOpen = false;
 						}
 					}
 				}
+				break;
 			}
-			else if (activeSubPanel == SUB_INSERT) {
-				float sy = startY + 1 * (mainItemHeight + gap); 
-				float cx = subX;
-
-				DrawLabel({cx, sy}, "Index =");
-				cx += MeasureTextEx(listFont, "Index =", labelFontSize, 1.0f).x + gap;
-
-				if (DrawTextBox({cx, sy}, inputInsertIdx, activeInput == INP_INSERT_IDX, 100, mainItemHeight)) activeInput = INP_INSERT_IDX;
-				cx += 100 + gap;
-
-				DrawLabel({cx, sy}, "Value =");
-				cx += MeasureTextEx(listFont, "Value =", labelFontSize, 1.0f).x + gap;
-
-				if (DrawTextBox({cx, sy}, inputInsertVal, activeInput == INP_INSERT_VAL, 100, mainItemHeight)) activeInput = INP_INSERT_VAL;
-				cx += 100 + gap;
-
-				if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
-					if (!inputInsertIdx.empty() && !inputInsertVal.empty()) {
-						try { insertNodeAtIndex(std::stoi(inputInsertIdx), std::stoi(inputInsertVal)); inputInsertIdx.clear(); inputInsertVal.clear(); activeInput = INP_NONE; } catch (...) {}
+			case SUB_INSERT: {
+				float sy = startY + mainHeight + gap;
+				DrawLabel({subX, sy}, "Idx =");
+				if (DrawTextBox({subX + 60, sy}, inputBuffers[2], activeInput == INP_INSERT_IDX, 80, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_INSERT_IDX;
+				DrawLabel({subX + 150, sy}, "Val =");
+				if (DrawTextBox({subX + 210, sy}, inputBuffers[3], activeInput == INP_INSERT_VAL, 80, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_INSERT_VAL;
+				if (DrawButtonText({subX + 300, sy}, "GO", 50, mainHeight, false)) {
+					if (!inputBuffers[2].empty() && !inputBuffers[3].empty()) {
+						insertNodeAtIndex(std::stoi(inputBuffers[2]), std::stoi(inputBuffers[3])); 
+						inputBuffers[2].clear(); inputBuffers[3].clear(); activeInput = INP_NONE;
 					}
 				}
+				break;
 			}
-			else if (activeSubPanel == SUB_SEARCH) {
-				float sy = startY + 2 * (mainItemHeight + gap); 
-				float cx = subX;
-
-				DrawLabel({cx, sy}, "Value =");
-				cx += MeasureTextEx(listFont, "Value =", labelFontSize, 1.0f).x + gap;
-
-				if (DrawTextBox({cx, sy}, inputSearch, activeInput == INP_SEARCH, 120, mainItemHeight)) activeInput = INP_SEARCH;
-				cx += 120 + gap;
-
-				if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
-					if (!inputSearch.empty()) {
-						try { searchNode(std::stoi(inputSearch)); inputSearch.clear(); activeInput = INP_NONE; } catch (...) {}
-					}
+			case SUB_SEARCH: {
+				float sy = startY + 2 * (mainHeight + gap);
+				DrawLabel({subX, sy}, "Val =");
+				if (DrawTextBox({subX + 60, sy}, inputBuffers[1], activeInput == INP_SEARCH, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_SEARCH;
+				if (DrawButtonText({subX + 190, sy}, "GO", 50, mainHeight, false)) {
+					if (!inputBuffers[1].empty()) { searchNode(std::stoi(inputBuffers[1])); inputBuffers[1].clear(); activeInput = INP_NONE; }
 				}
+				break;
 			}
-			else if (activeSubPanel == SUB_DELETE) {
-				float sy = startY + 3 * (mainItemHeight + gap); 
-				float cx = subX;
-
-				DrawLabel({cx, sy}, "Index =");
-				cx += MeasureTextEx(listFont, "Index =", labelFontSize, 1.0f).x + gap;
-
-				if (DrawTextBox({cx, sy}, inputDeleteIdx, activeInput == INP_DELETE_IDX, 120, mainItemHeight)) activeInput = INP_DELETE_IDX;
-				cx += 120 + gap;
-
-				if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
-					if (!inputDeleteIdx.empty()) {
-						try { deleteNodeAtIndex(std::stoi(inputDeleteIdx)); inputDeleteIdx.clear(); activeInput = INP_NONE; } catch (...) {}
-					}
+			case SUB_DELETE: {
+				float sy = startY + 3 * (mainHeight + gap);
+				DrawLabel({subX, sy}, "Idx =");
+				if (DrawTextBox({subX + 60, sy}, inputBuffers[4], activeInput == INP_DELETE_IDX, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInput = INP_DELETE_IDX;
+				if (DrawButtonText({subX + 190, sy}, "GO", 50, mainHeight, false)) {
+					if (!inputBuffers[4].empty()) { deleteNodeAtIndex(std::stoi(inputBuffers[4])); inputBuffers[4].clear(); activeInput = INP_NONE; }
 				}
+				break;
 			}
+			default: break;
 		}
-
-		// Draw input error message if exists
-		if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f) {
-			DrawTextEx(numberFont, inputErrorMsg.c_str(), { panelX + mainItemWidth + gap + 90.0f, startY + 200.0f }, 18.0f, 1.0f, RED);
-		}
-
 		EndScissorMode();    
 	}
 }
 
-// Linked list operations
-
 void LinkedListState::searchNode(int value)
 {
-	if (head == nullptr) {
-		inputErrorMsg = "List is empty!";
-		inputErrorTimer = 2.5f;
-		return;
-	}
+	if (head == nullptr) { currentErrorSlot = 2; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
-	searchTargetValue = value;
-	searchPointer = head;
-	searchPointer->color = YELLOW;
-	isAnimating = true;
-	currentTask = TASK_SEARCH;
-	animTimer = 0.0f;
+	searchTargetValue = value; searchPointer = head; searchPointer->color = YELLOW;
+	isAnimating = true; currentTask = TASK_SEARCH; animTimer = 0.0f;
 }
 
 void LinkedListState::deleteNodeAtIndex(int index)
 {
-	if (head == nullptr) {
-		inputErrorMsg = "List is empty!";
-		inputErrorTimer = 2.5f;
-		return;
-	}
-	if (index < 0) {
-		inputErrorMsg = "Invalid index!";
-		inputErrorTimer = 2.5f;
-		return;
-	}
+	if (head == nullptr) { currentErrorSlot = 3; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
+	if (index < 0) { currentErrorSlot = 3; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
-
 	if (index == 0) {
-		LLNode* temp = head;
-		head = head->next;
-		delete temp;
-		updateTargetPositions();
+		LLNode* temp = head; head = head->next; delete temp; updateTargetPositions();
 	} else {
-		searchTargetIndex = index;
-		searchCurrentIndex = 0;
-		searchPointer = head;
-		searchPointer->color = YELLOW;
-		isAnimating = true;
-		currentTask = TASK_DELETE_INDEX;
-		animTimer = 0.0f;
+		searchTargetIndex = index; searchCurrentIndex = 0; searchPointer = head; searchPointer->color = YELLOW;
+		isAnimating = true; currentTask = TASK_DELETE_INDEX; animTimer = 0.0f;
 	}
 }
 
@@ -637,26 +334,15 @@ void LinkedListState::insertNode(int value)
 
 void LinkedListState::insertNodeAtIndex(int index, int value)
 {
-	if (index < 0) {
-		inputErrorMsg = "Invalid index!";
-		inputErrorTimer = 2.5f;
-		return;
-	}
+	if (index < 0) { currentErrorSlot = 1; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
-
 	if (index == 0 || head == nullptr) {
 		LLNode* newNode = new LLNode{ value, {startX, startY - 200.0f}, {0,0}, head, SKYBLUE };
-		head = newNode;
-		updateTargetPositions();
+		head = newNode; updateTargetPositions();
 	} else {
-		searchTargetIndex = index;
-		searchTargetValue = value;
-		searchCurrentIndex = 0;
-		searchPointer = head;
-		searchPointer->color = YELLOW;
-		isAnimating = true;
-		currentTask = TASK_INSERT_INDEX;
-		animTimer = 0.0f;
+		searchTargetIndex = index; searchTargetValue = value; searchCurrentIndex = 0;
+		searchPointer = head; searchPointer->color = YELLOW; isAnimating = true;
+		currentTask = TASK_INSERT_INDEX; animTimer = 0.0f;
 	}
 }
 
@@ -665,8 +351,8 @@ void LinkedListState::resetNodeColors()
 	LLNode* curr = head;
 	while (curr) {
 		curr->color = SKYBLUE;
-		curr = curr->next;
-	}
+curr = curr->next;
+}
 }
 
 void LinkedListState::clearList()
