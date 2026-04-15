@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-class Heap {
+class BinaryHeap {
 private:
     std::vector<int> data;
 
@@ -13,8 +13,8 @@ private:
     void heapifyDown(int index);
 
 public:
-    Heap();
-    ~Heap();
+    BinaryHeap();
+    ~BinaryHeap();
 
     void buildHeap(const std::vector<int>& initialData);
     void clear();

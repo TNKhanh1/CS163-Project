@@ -1,11 +1,12 @@
 #include "HeapState.h"
+#include "State.h"
 #include <iostream>
 #include <cmath>
 #include "raymath.h"
 
 HeapState::HeapState() : DataStructureState()
 {
-    NextState = (int)STATE_HEAP; 
+    NextState = (int)State::Heap; 
 
     controlTex.id = 0; 
 
@@ -26,7 +27,7 @@ HeapState::HeapState() : DataStructureState()
 
 HeapState::~HeapState()
 {
-    Current_Heap.clear();
+    heap.clear();
     if (controlTex.id != 0) UnloadTexture(controlTex); 
 }
 
@@ -176,7 +177,7 @@ void HeapState::update(float deltaTime)
         if (IsKeyPressed(KEY_ENTER)) {
             try {
                 if (activeInput == HEAP_INP_INSERT_VAL && !inputInsertVal.empty()) {
-                    Current_Heap.insert(std::stoi(inputInsertVal));
+                    heap.insert(std::stoi(inputInsertVal));
                     inputInsertVal.clear();
                 }
             } catch (...) {}
@@ -255,16 +256,6 @@ void HeapState::DrawLabel(Vector2 pos, const char* text)
     DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
 }
 
-void HeapState::DrawSubMenuContent()
-{
- 
-}
-
-void HeapState::onExecuteOp(MainOp op)
-{
- 
-}
-
 void HeapState::draw()
 {
     DataStructureState::drawSharedUI();
@@ -319,16 +310,16 @@ void HeapState::draw()
                 float cx = subX;
 
                 if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { 
-                    Current_Heap.clear();
+                    heap.clear();
                 }
                 cx += 90 + gap;
 
                 if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
-                    Current_Heap.clear();
+                    heap.clear();
                     int NumNode = GetRandomValue(1, 15);
                     std::vector<int> randomData;
                     for(int i = 0; i < NumNode; i++) randomData.push_back(GetRandomValue(1, 99));
-                    Current_Heap.buildHeap(randomData);
+                    heap.buildHeap(randomData);
                 }
             }
             else if (activeSubPanel == HEAP_SUB_INSERT) {
@@ -343,7 +334,7 @@ void HeapState::draw()
 
                 if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
                     if (!inputInsertVal.empty()) {
-                        try { Current_Heap.insert(std::stoi(inputInsertVal)); inputInsertVal.clear(); activeInput = HEAP_INP_NONE; } catch (...) {}
+                        try { heap.insert(std::stoi(inputInsertVal)); inputInsertVal.clear(); activeInput = HEAP_INP_NONE; } catch (...) {}
                     }
                 }
             }
@@ -352,8 +343,8 @@ void HeapState::draw()
                 float cx = subX;
 
                 if (DrawButtonText({cx, sy}, "POP", 90, mainItemHeight)) {
-                    if (!Current_Heap.isEmpty()) {
-                        try { Current_Heap.extractTop(); } catch (...) {} 
+                    if (!heap.isEmpty()) {
+                        try { heap.extractTop(); } catch (...) {} 
                     }
                 }
             }
@@ -365,4 +356,12 @@ void HeapState::draw()
 
         EndScissorMode();    
     }
+}
+
+void HeapState::DrawSubMenuContent() {
+    // TODO: Implement heap submenu drawing
+}
+
+void HeapState::onExecuteOp(MainOp op) {
+    // TODO: Implement heap operation execution
 }
