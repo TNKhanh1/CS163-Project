@@ -1,10 +1,10 @@
 #pragma once
 enum State
 {
-    Menu,
-    LinkedList,
-    Heap,
-    AVLTree,
-    MST,
-    Intro
+    STATE_MENU,
+    STATE_LINKEDLIST,
+    STATE_HEAP,
+    STATE_AVLTREE,
+    STATE_MST,
+    STATE_INTRO
 };

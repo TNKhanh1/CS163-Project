@@ -5,7 +5,7 @@
 
 HeapState::HeapState() : DataStructureState()
 {
-    NextState = (int)Heap; 
+    NextState = (int)STATE_HEAP; 
 
     controlTex.id = 0; 
 
@@ -26,7 +26,7 @@ HeapState::HeapState() : DataStructureState()
 
 HeapState::~HeapState()
 {
-    heap.clear();
+    Current_Heap.clear();
     if (controlTex.id != 0) UnloadTexture(controlTex); 
 }
 
@@ -176,7 +176,7 @@ void HeapState::update(float deltaTime)
         if (IsKeyPressed(KEY_ENTER)) {
             try {
                 if (activeInput == HEAP_INP_INSERT_VAL && !inputInsertVal.empty()) {
-                    heap.insert(std::stoi(inputInsertVal));
+                    Current_Heap.insert(std::stoi(inputInsertVal));
                     inputInsertVal.clear();
                 }
             } catch (...) {}
@@ -255,6 +255,16 @@ void HeapState::DrawLabel(Vector2 pos, const char* text)
     DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
 }
 
+void HeapState::DrawSubMenuContent()
+{
+ 
+}
+
+void HeapState::onExecuteOp(MainOp op)
+{
+ 
+}
+
 void HeapState::draw()
 {
     DataStructureState::drawSharedUI();
@@ -309,16 +319,16 @@ void HeapState::draw()
                 float cx = subX;
 
                 if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { 
-                    heap.clear();
+                    Current_Heap.clear();
                 }
                 cx += 90 + gap;
 
                 if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
-                    heap.clear();
+                    Current_Heap.clear();
                     int NumNode = GetRandomValue(1, 15);
                     std::vector<int> randomData;
                     for(int i = 0; i < NumNode; i++) randomData.push_back(GetRandomValue(1, 99));
-                    heap.buildHeap(randomData);
+                    Current_Heap.buildHeap(randomData);
                 }
             }
             else if (activeSubPanel == HEAP_SUB_INSERT) {
@@ -333,7 +343,7 @@ void HeapState::draw()
 
                 if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
                     if (!inputInsertVal.empty()) {
-                        try { heap.insert(std::stoi(inputInsertVal)); inputInsertVal.clear(); activeInput = HEAP_INP_NONE; } catch (...) {}
+                        try { Current_Heap.insert(std::stoi(inputInsertVal)); inputInsertVal.clear(); activeInput = HEAP_INP_NONE; } catch (...) {}
                     }
                 }
             }
@@ -342,8 +352,8 @@ void HeapState::draw()
                 float cx = subX;
 
                 if (DrawButtonText({cx, sy}, "POP", 90, mainItemHeight)) {
-                    if (!heap.isEmpty()) {
-                        try { heap.extractTop(); } catch (...) {} 
+                    if (!Current_Heap.isEmpty()) {
+                        try { Current_Heap.extractTop(); } catch (...) {} 
                     }
                 }
             }

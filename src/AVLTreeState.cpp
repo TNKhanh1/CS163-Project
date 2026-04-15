@@ -2,7 +2,7 @@
 
 AVLTreeState::AVLTreeState() : DataStructureState()
 {
-    NextState = (int)AVLTree;
+    NextState = (int)STATE_AVLTREE;
 }
 
 AVLTreeState::~AVLTreeState()

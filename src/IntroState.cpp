@@ -3,7 +3,7 @@
 IntroState::IntroState() {
     WindowWidth = 1800;
     WindowHeight = 1000;
-    NextState = Intro; 
+    NextState = STATE_INTRO; 
     
     introBg = nullptr;
     startBtn = nullptr;
@@ -62,7 +62,7 @@ void IntroState::update(float deltaTime) {
         transitionAlpha += 500.0f * deltaTime;
         if (transitionAlpha >= 255.0f) {
             transitionAlpha = 255.0f;
-            NextState = Menu; // Chuyển sang màn hình Menu
+            NextState = STATE_MENU; // Chuyển sang màn hình Menu
             return;
         }
     }

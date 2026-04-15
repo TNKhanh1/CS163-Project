@@ -25,6 +25,8 @@
                 "src/AVLTreeState.cpp",
                 "src/HeapState.cpp",
                 "src/Heap.cpp",
+                "src/MSTState.cpp",
+                "src/MST.cpp",
                 "-o",
                 "App.exe",
                 "-O2",

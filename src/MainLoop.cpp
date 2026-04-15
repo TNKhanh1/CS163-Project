@@ -4,7 +4,7 @@ MainLoop::MainLoop()
 {
     WindowWidth = 1800;
     WindowHeight = 1000;
-    current_state = Intro; 
+    current_state = STATE_INTRO; 
 }
 
 MainLoop::~MainLoop()
@@ -36,7 +36,7 @@ void MainLoop::LoadAssets()
     linkedList.loadAssets();
     avlTree.loadAssets();
     heap.loadAssets();
-
+    mst.loadAssets();
     UnloadFont(loadingFont); 
 }
 
@@ -72,60 +72,70 @@ void MainLoop::run()
 
 void MainLoop::update(float delta_time)
 {
-    if (current_state == Intro)
+    if (current_state == STATE_INTRO)
     {
         intro.update(delta_time);
     }
-    else if (current_state == Menu)
+    else if (current_state == STATE_MENU)
     {
         menu.update(delta_time);
     }
-    else if (current_state == LinkedList)
+    else if (current_state == STATE_LINKEDLIST)
     {
         linkedList.update(delta_time); 
     }
-    else if (current_state == AVLTree)
+    else if (current_state == STATE_AVLTREE)
     {
         avlTree.update(delta_time); 
     }
-    else if (current_state == Heap)
+    else if (current_state == STATE_HEAP)
     {
         heap.update(delta_time); 
+    }
+    else if (current_state == STATE_MST) 
+    {
+         mst.update(delta_time); 
     }
 }
 
 void MainLoop::draw()
 {
-    if (current_state == Intro)
+    if (current_state == STATE_INTRO)
     {
         intro.draw();
         current_state = intro.NextState;
-        intro.NextState = Intro;        
+        intro.NextState = STATE_INTRO;        
     }
-    else if (current_state == Menu)
+    else if (current_state == STATE_MENU)
     {
         menu.draw();
         current_state = menu.NextState; 
-        menu.NextState = Menu;          
+        menu.NextState = STATE_MENU;          
     }
-    else if (current_state == LinkedList)
+    else if (current_state == STATE_LINKEDLIST)
     {
         linkedList.draw();
         current_state = (State)linkedList.NextState;
-        linkedList.NextState = (int)LinkedList;     
+        linkedList.NextState = (int)STATE_LINKEDLIST;     
     }
-    else if (current_state == AVLTree)
+    else if (current_state == STATE_AVLTREE)
     {
         avlTree.draw();
         current_state = (State)avlTree.NextState;
-        avlTree.NextState = (int)AVLTree;     
+        avlTree.NextState = (int)STATE_AVLTREE;     
         
     }
-    else if (current_state == Heap)
+    else if (current_state == STATE_HEAP)
     {
         heap.draw();
         current_state = (State)heap.NextState;
-        heap.NextState = (int)Heap;     
+        heap.NextState = (int)STATE_HEAP;     
+    }
+    else if (current_state == STATE_MST)
+    {
+        mst.draw();
+        current_state = (State)mst.NextState;
+        mst.NextState = (int)STATE_MST;     
     }
 }
 

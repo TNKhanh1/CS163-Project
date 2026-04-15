@@ -106,7 +106,7 @@ void GradientButton::draw(Font font)
 
 MenuState::MenuState()
 {
-    NextState = Menu;
+    NextState = STATE_MENU;
     bg = nullptr; 
     bubbleSpawnTimer = 0.0f;
 }
@@ -153,15 +153,16 @@ void MenuState::update(float deltaTime)
         if (btn.isClicked())
         {
             if (btn.text == "LINKED LIST") {
-                NextState = LinkedList;
+                NextState = STATE_LINKEDLIST;
             }
             if (btn.text == "HEAP") {
-                NextState = Heap;
+                NextState = STATE_HEAP;
             }
             if (btn.text == "AVL TREE") {
-                NextState = AVLTree;
+                NextState = STATE_AVLTREE;
             }
             if (btn.text == "MINIMUM SPANNING TREE") {
+                NextState = STATE_MST;
             }
         }
     }

@@ -11,7 +11,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 	nodeSpacing = 150.0f;
 	nodeRadius = 40.0f;
 
-	NextState = (int)LinkedList;
+	NextState = (int)STATE_LINKEDLIST;
 
 	activeInputFocus = -1;
 	previousInputFocus = -1;
