@@ -2,24 +2,24 @@
 #include <algorithm>
 #include <stdexcept>
 
-Heap::Heap() {}
+BinaryHeap::BinaryHeap() {}
 
-Heap::~Heap() {
+BinaryHeap::~BinaryHeap() {
     clear();
 }
 
-int Heap::parent(int index) const { return (index - 1) / 2; }
-int Heap::left(int index) const { return 2 * index + 1; }
-int Heap::right(int index) const { return 2 * index + 2; }
+int BinaryHeap::parent(int index) const { return (index - 1) / 2; }
+int BinaryHeap::left(int index) const { return 2 * index + 1; }
+int BinaryHeap::right(int index) const { return 2 * index + 2; }
 
-void Heap::heapifyUp(int index) {
+void BinaryHeap::heapifyUp(int index) {
     while (index > 0 && data[parent(index)] > data[index]) {
         std::swap(data[parent(index)], data[index]);
         index = parent(index);
     }
 }
 
-void Heap::heapifyDown(int index) {
+void BinaryHeap::heapifyDown(int index) {
     int size = data.size();
     int minIndex = index;
 
@@ -43,23 +43,23 @@ void Heap::heapifyDown(int index) {
     }
 }
 
-void Heap::buildHeap(const std::vector<int>& initialData) {
+void BinaryHeap::buildHeap(const std::vector<int>& initialData) {
     data = initialData;
     for (int i = (data.size() / 2) - 1; i >= 0; --i) {
         heapifyDown(i);
     }
 }
 
-void Heap::clear() {
+void BinaryHeap::clear() {
     data.clear();
 }
 
-void Heap::insert(int value) {
+void BinaryHeap::insert(int value) {
     data.push_back(value);
     heapifyUp(data.size() - 1);
 }
 
-int Heap::extractTop() {
+int BinaryHeap::extractTop() {
     if (isEmpty()) return -1;
     
     int topValue = data[0];
@@ -72,14 +72,14 @@ int Heap::extractTop() {
     return topValue;
 }
 
-const std::vector<int>& Heap::getData() const {
+const std::vector<int>& BinaryHeap::getData() const {
     return data;
 }
 
-int Heap::getSize() const {
+int BinaryHeap::getSize() const {
     return data.size();
 }
 
-bool Heap::isEmpty() const {
+bool BinaryHeap::isEmpty() const {
     return data.empty();
 }

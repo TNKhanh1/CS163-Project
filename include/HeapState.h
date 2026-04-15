@@ -1,11 +1,11 @@
 #pragma once
+#include "Heap.h"
 #include "DataStructureState.h"
 #include <raylib.h>
 #include <raymath.h>
 #include <vector>
 #include <string>
 #include <iostream>
-#include "Heap.h"
 
 enum HeapSubPanel { HEAP_SUB_NONE, HEAP_SUB_CREATE, HEAP_SUB_INSERT, HEAP_SUB_DELETE };
 enum HeapInput { HEAP_INP_NONE, HEAP_INP_INSERT_VAL };
@@ -20,8 +20,11 @@ public:
     void update(float deltaTime) override;
     void draw() override;
 
+    void DrawSubMenuContent() override;
+    void onExecuteOp(MainOp op) override;
+
 private:
-    Heap heap; 
+    BinaryHeap heap; 
 
     Texture2D controlTex;
     Vector2 controlBtnPos;

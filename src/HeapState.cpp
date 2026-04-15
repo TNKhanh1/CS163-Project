@@ -1,11 +1,12 @@
 #include "HeapState.h"
+#include "State.h"
 #include <iostream>
 #include <cmath>
 #include "raymath.h"
 
 HeapState::HeapState() : DataStructureState()
 {
-    NextState = (int)Heap; 
+    NextState = (int)State::Heap; 
 
     controlTex.id = 0; 
 
@@ -355,4 +356,12 @@ void HeapState::draw()
 
         EndScissorMode();    
     }
+}
+
+void HeapState::DrawSubMenuContent() {
+    // TODO: Implement heap submenu drawing
+}
+
+void HeapState::onExecuteOp(MainOp op) {
+    // TODO: Implement heap operation execution
 }
