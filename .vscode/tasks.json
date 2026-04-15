@@ -23,6 +23,8 @@
                 "src/MenuState.cpp",
                 "src/LinkedListState.cpp",
                 "src/AVLTreeState.cpp",
+                "src/HeapState.cpp",
+                "src/Heap.cpp",
                 "-o",
                 "App.exe",
                 "-O2",

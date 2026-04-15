@@ -35,6 +35,7 @@ void MainLoop::LoadAssets()
     menu.loadAssets();
     linkedList.loadAssets();
     avlTree.loadAssets();
+    heap.loadAssets();
 
     UnloadFont(loadingFont); 
 }
@@ -87,6 +88,10 @@ void MainLoop::update(float delta_time)
     {
         avlTree.update(delta_time); 
     }
+    else if (current_state == Heap)
+    {
+        heap.update(delta_time); 
+    }
 }
 
 void MainLoop::draw()
@@ -115,6 +120,12 @@ void MainLoop::draw()
         current_state = (State)avlTree.NextState;
         avlTree.NextState = (int)AVLTree;     
         
+    }
+    else if (current_state == Heap)
+    {
+        heap.draw();
+        current_state = (State)heap.NextState;
+        heap.NextState = (int)Heap;     
     }
 }
 

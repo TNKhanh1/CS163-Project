@@ -15,6 +15,7 @@
 #include<IntroState.h>
 #include<LinkedListState.h>
 #include <AVLTreeState.h>
+#include<HeapState.h>
 
 using namespace std;
 
@@ -45,4 +46,5 @@ class MainLoop
         IntroState intro;
         LinkedListState linkedList;
         AVLTreeState avlTree;
+        HeapState heap;
 };

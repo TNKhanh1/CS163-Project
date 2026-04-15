@@ -156,6 +156,7 @@ void MenuState::update(float deltaTime)
                 NextState = LinkedList;
             }
             if (btn.text == "HEAP") {
+                NextState = Heap;
             }
             if (btn.text == "AVL TREE") {
                 NextState = AVLTree;
