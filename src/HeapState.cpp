@@ -6,7 +6,7 @@
 
 HeapState::HeapState() : DataStructureState()
 {
-    NextState = (int)State::Heap; 
+    NextState = (int)STATE_HEAP; 
 
     controlTex.id = 0; 
 

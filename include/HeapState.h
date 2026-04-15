@@ -1,85 +1,48 @@
+#pragma once
 #include "Heap.h"
-#include <algorithm>
-#include <stdexcept>
+#include "DataStructureState.h"
+#include <raylib.h>
+#include <raymath.h>
+#include <vector>
+#include <string>
+#include <iostream>
 
-BinaryHeap::BinaryHeap() {}
+enum HeapSubPanel { HEAP_SUB_NONE, HEAP_SUB_CREATE, HEAP_SUB_INSERT, HEAP_SUB_DELETE };
+enum HeapInput { HEAP_INP_NONE, HEAP_INP_INSERT_VAL };
 
-BinaryHeap::~BinaryHeap() {
-    clear();
-}
+class HeapState : public DataStructureState 
+{
+public:
+    HeapState();
+    ~HeapState();
 
-int BinaryHeap::parent(int index) const { return (index - 1) / 2; }
-int BinaryHeap::left(int index) const { return 2 * index + 1; }
-int BinaryHeap::right(int index) const { return 2 * index + 2; }
+    void loadAssets() override;
+    void update(float deltaTime) override;
+    void draw() override;
 
-void BinaryHeap::heapifyUp(int index) {
-    while (index > 0 && data[parent(index)] > data[index]) {
-        std::swap(data[parent(index)], data[index]);
-        index = parent(index);
-    }
-}
+    void DrawSubMenuContent() override;
+    void onExecuteOp(MainOp op) override;
 
-void BinaryHeap::heapifyDown(int index) {
-    int size = data.size();
-    int minIndex = index;
+private:
+    BinaryHeap heap; 
 
-    while (true) {
-        int l = left(index);
-        int r = right(index);
-
-        if (l < size && data[l] < data[minIndex]) {
-            minIndex = l;
-        }
-        if (r < size && data[r] < data[minIndex]) {
-            minIndex = r;
-        }
-
-        if (minIndex != index) {
-            std::swap(data[index], data[minIndex]);
-            index = minIndex;
-        } else {
-            break;
-        }
-    }
-}
-
-void BinaryHeap::buildHeap(const std::vector<int>& initialData) {
-    data = initialData;
-    for (int i = (data.size() / 2) - 1; i >= 0; --i) {
-        heapifyDown(i);
-    }
-}
-
-void BinaryHeap::clear() {
-    data.clear();
-}
-
-void BinaryHeap::insert(int value) {
-    data.push_back(value);
-    heapifyUp(data.size() - 1);
-}
-
-int BinaryHeap::extractTop() {
-    if (isEmpty()) return -1;
+    Texture2D controlTex;
+    Vector2 controlBtnPos;
+    Vector2 dragOffset;
+    bool isDraggingControlBtn, isClickingControlBtn, isPanelOpen;
+    float panelAnimProgress;
     
-    int topValue = data[0];
-    data[0] = data.back();
-    data.pop_back();
+    HeapSubPanel activeSubPanel;
+    HeapInput activeInput, previousActiveInput;
 
-    if (!isEmpty()) {
-        heapifyDown(0);
-    }
-    return topValue;
-}
+    std::string inputInsertVal;
+    int cursorIndex;
+    float cursorBlinkTimer, textScrollX;
+    bool cursorVisible;
 
-const std::vector<int>& BinaryHeap::getData() const {
-    return data;
-}
-
-int BinaryHeap::getSize() const {
-    return data.size();
-}
-
-bool BinaryHeap::isEmpty() const {
-    return data.empty();
-}
+    bool IsValidInputString(const std::string& str, HeapInput type);
+    void HandleTextInput(std::string& text, HeapInput type);
+    bool DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected = false);
+    bool DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height);
+    void DrawLabel(Vector2 pos, const char* text);
+};
