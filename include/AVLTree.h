@@ -32,19 +32,19 @@ private:
 
     int getBalance(Node* root) const;
 
-    Node* rightRotate(Node* y);
+    Node* rightRotate(Node* y, float coord);
 
-    Node* leftRotate(Node* x);
+    Node* leftRotate(Node* x, float coord);
 
-    void insertTo(Node*& node, int key);
+    void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0);
 
     void remove(Node*& node, int key);
 
-    void balancingRotation(Node*& node);
+    void balancingRotation(Node*& node, float coord);
 
-    void upHeight(Node*& node);
+    void upHeight(Node*& node, float mul, float coord, float side = 0.0);
 
-    void downHeight(Node*& node);
+    void downHeight(Node*& node, float mul, float coord, float side = 0.0);
 
 public:
     AVLTree();
