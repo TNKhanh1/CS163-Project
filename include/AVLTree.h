@@ -1,4 +1,7 @@
 #pragma once
+#include <DataStructureState.h>
+#include <raylib.h>
+#include <raymath.h>
 
 struct Node {
     int key;
@@ -6,7 +9,12 @@ struct Node {
     Node* right;
     int height;
 
+    Vector2 position;
+    Vector2 targetPosition;
+    Color color
+
     Node(int key);
+    Node(int key, int h, float lvl);
     ~Node();
 };
 
@@ -27,6 +35,10 @@ private:
     void remove(Node*& node, int key);
 
     void balancingRotation(Node*& node);
+
+    void upHeight(Node*& node);
+
+    void downHeight(Node*& node);
 
 public:
     AVLTree();

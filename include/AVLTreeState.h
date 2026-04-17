@@ -1,7 +1,5 @@
 #pragma once
-#include "DataStructureState.h"
-#include <raylib.h>
-#include <State.h>
+#include "AVLTree.h"
 
 class AVLTreeState : public DataStructureState 
 {
