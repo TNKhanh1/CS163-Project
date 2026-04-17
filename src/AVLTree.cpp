@@ -26,9 +26,10 @@ Node* AVLTree :: rightRotate(Node* y, float coord) {
 
     x->right = y;
     y->left = sub;
+    rebellion(sub, 1.0, coord);
 
-    upHeight(x, 1.0);
-    downHeight(y, 1.0);
+    upHeight(x, 1.0, coord);
+    downHeight(y, 1.0, coord);
 
     y->height = std::max(height(y->left), height(y->right)) + 1;
     x->height = std::max(height(x->left), height(x->right)) + 1;
@@ -42,9 +43,10 @@ Node* AVLTree :: leftRotate(Node* x, float coord) {
 
     y->left = x;
     x->right = sub;
+    rebellion(sub, -1.0, coord);
 
-    upHeight(y, -1.0);
-    downHeight(x, -1.0);
+    upHeight(y, -1.0, coord);
+    downHeight(x, -1.0, coord);
 
     x->height = std::max(height(x->left), height(x->right)) + 1;
     y->height = std::max(height(y->left), height(y->right)) + 1;
@@ -52,7 +54,7 @@ Node* AVLTree :: leftRotate(Node* x, float coord) {
     return y;
 }
 
-void AVLTree :: insertTo(Node*& node, int key, float coord, int h = 0, float w = 0) {
+void AVLTree :: insertTo(Node*& node, int key, float coord, int h, float w) {
     if (node == nullptr) {
         node = new Node(key, h, w*20.0);
         return;
@@ -117,7 +119,7 @@ void AVLTree :: balancingRotation(Node*& node, float coord) {
     }
 }
 
-AVLTree :: void upHeight(Node*& node, float mul, float coord, float side = 0.0) {
+void AVLTree :: upHeight(Node*& node, float mul, float coord, float side) {
     if (node == nullptr) return;
     node->targetPosition.x = node->targetPosition.x + (mul + side)*coord;
     node->targetPosition.y -= 50.0;
@@ -125,12 +127,19 @@ AVLTree :: void upHeight(Node*& node, float mul, float coord, float side = 0.0) 
     upHeight(node->right, mul, coord*0.5, 0.5);
 }
 
-AVLTree :: void downHeight(Node*& node, float mul, float coord, float side = 0.0) {
+void AVLTree :: downHeight(Node*& node, float mul, float coord, float side) {
     if (node == nullptr) return;
     node->targetPosition.x = node->targetPosition.x + (mul - side)*coord;
     node->targetPosition.y += 50.0;
-    upHeight(node->left, mul, coord*0.5, -0.5);
-    upHeight(node->right, mul, coord*0.5, 0.5);
+    downHeight(node->left, mul, coord*0.5, -0.5);
+    downHeight(node->right, mul, coord*0.5, 0.5);
+}
+
+void AVLTree :: rebellion(Node*& node, float side, float coord) {
+    if (node == nullptr) return;
+    node->targetPosition.x = node->targetPosition.x + side*coord;
+    rebellion(node->left, side, coord);
+    rebellion(node->right, side, coord);
 }
 
 AVLTree :: AVLTree(): root(nullptr) {}

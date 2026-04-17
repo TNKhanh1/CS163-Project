@@ -36,7 +36,7 @@ private:
 
     Node* leftRotate(Node* x, float coord);
 
-    void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0);
+    void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0.0);
 
     void remove(Node*& node, int key);
 
@@ -45,6 +45,8 @@ private:
     void upHeight(Node*& node, float mul, float coord, float side = 0.0);
 
     void downHeight(Node*& node, float mul, float coord, float side = 0.0);
+
+    void rebellion(Node*& node, float side, float coord);
 
 public:
     AVLTree();
