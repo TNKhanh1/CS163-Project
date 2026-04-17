@@ -3,6 +3,12 @@
 #include <raylib.h>
 #include <raymath.h>
 
+float twoPower(int height) {
+    if (height == 0) return 1.0;
+    if (height > 0) return twoPower(height - 1)*2.0;
+    else return twoPower(height + 1)*0.5;
+}
+
 struct Node {
     int key;
     Node* left;
@@ -11,7 +17,7 @@ struct Node {
 
     Vector2 position;
     Vector2 targetPosition;
-    Color color
+    Color color;
 
     Node(int key);
     Node(int key, int h, float lvl);
