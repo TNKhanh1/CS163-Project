@@ -5,5 +5,8 @@
         "*.h": "cpp",
         "raylib.h": "c"
     },
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "github.copilot.chat.languageContext.fix.typescript.enabled": true,
+    "github.copilot.chat.languageContext.inline.typescript.enabled": true,
+    "git.enabled": true
 }

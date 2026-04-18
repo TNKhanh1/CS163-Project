@@ -95,7 +95,7 @@ void AVLTreeState::onExecuteOp(MainOp op)
         // Reset colors before starting a new operation!
         resetNodeColors(const_cast<Node*>(avl.rootCall()));
 
-        if (op == OP_INSERT) { // OP_INSERT
+        if (op == OP_SLOT2) { // OP_INSERT
             avl.insert(value);
             
             // 1. Find the node we just inserted
@@ -109,10 +109,10 @@ void AVLTreeState::onExecuteOp(MainOp op)
                 animTimer = 1.5f; 
             }
         }
-        else if (op == OP_DELETE) {
+        else if (op == OP_SLOT4) {
             avl.delNode(value);
         }
-        else if (op == OP_SEARCH) {
+        else if (op == OP_SLOT3) {
             const Node* foundNode = avl.search(value);
             if (foundNode != nullptr) {
                 // Instantly highlight the found node GREEN for now
