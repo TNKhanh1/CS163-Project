@@ -62,22 +62,50 @@ void AVLTreeState::DrawSubMenuContent()
 {
     if (activeMainOp == OP_NONE) return;
 
-    // Calculate position based on the selected control button
-    float menuStartX = controlBtnPos.x + (float)controlTex.width + 15.0f;
-    float currentY = controlBtnPos.y + (((int)activeMainOp - 1) * (45.0f + 8.0f));
+    // Calculate base positions relative to the main control panel
+    float subX = controlBtnPos.x + 320.0f; // Offset to the right of the main buttons
+    float startY = controlBtnPos.y;        // Align with the top button
+    float mainHeight = 45.0f;
+    float gap = 8.0f;                      // Gap between menu items
 
-    DrawLabel({menuStartX + 140.0f, currentY}, "Value:");
+    switch (activeMainOp) {
+        case OP_SLOT1: // Insert
+            DrawLabel({subX, startY}, "Value=");
+            
+            // Draw the text box
+            DrawTextBox({subX + 80, startY}, inputBuffer, true, 100, mainHeight, cursorIndex, textScrollX, cursorVisible);
+            
+            // Draw the "GO" button. If clicked, manually trigger onExecuteOp!
+            if (DrawButtonText({subX + 190, startY}, "GO", 50, mainHeight, false)) {
+                onExecuteOp(OP_SLOT1);
+            }
+            break;
 
-    DrawTextBox(
-        {menuStartX + 220.0f, currentY}, 
-        inputBuffer, 
-        true, // isActive
-        100.0f, 
-        45.0f, 
-        cursorIndex, 
-        textScrollX, 
-        cursorVisible
-    );
+        case OP_SLOT2: // Delete
+            // Shift the Y position down for the 2nd slot
+            DrawLabel({subX, startY + mainHeight + gap}, "Value=");
+            
+            DrawTextBox({subX + 80, startY + mainHeight + gap}, inputBuffer, true, 100, mainHeight, cursorIndex, textScrollX, cursorVisible);
+            
+            if (DrawButtonText({subX + 190, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
+                onExecuteOp(OP_SLOT2);
+            }
+            break;
+
+        case OP_SLOT3: // Search
+            // Shift the Y position down for the 3rd slot
+            DrawLabel({subX, startY + 2 * (mainHeight + gap)}, "Value=");
+            
+            DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffer, true, 100, mainHeight, cursorIndex, textScrollX, cursorVisible);
+            
+            if (DrawButtonText({subX + 190, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
+                onExecuteOp(OP_SLOT3);
+            }
+            break;
+            
+        default:
+            break;
+    }
 }
 
 void AVLTreeState::onExecuteOp(MainOp op)
@@ -95,7 +123,7 @@ void AVLTreeState::onExecuteOp(MainOp op)
         // Reset colors before starting a new operation!
         resetNodeColors(const_cast<Node*>(avl.rootCall()));
 
-        if (op == OP_SLOT2) { // OP_INSERT
+        if (op == OP_SLOT1) { // OP_INSERT
             avl.insert(value);
             
             // 1. Find the node we just inserted
@@ -109,7 +137,7 @@ void AVLTreeState::onExecuteOp(MainOp op)
                 animTimer = 1.5f; 
             }
         }
-        else if (op == OP_SLOT4) {
+        else if (op == OP_SLOT2) {
             avl.delNode(value);
         }
         else if (op == OP_SLOT3) {

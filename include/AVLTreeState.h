@@ -1,5 +1,7 @@
 #pragma once
 #include "AVLTree.h"
+#include <UI.h>
+#include <State.h>
 
 class AVLTreeState : public DataStructureState 
 {
