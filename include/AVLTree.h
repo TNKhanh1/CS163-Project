@@ -10,54 +10,50 @@ float twoPower(int height) {
 }
 
 struct Node {
-    int key;
-    Node* left;
-    Node* right;
-    int height;
+    Node(int key);
+    Node(int key, int h, float lvl);
+    ~Node();
 
     Vector2 position;
     Vector2 targetPosition;
     Color color;
 
-    Node(int key);
-    Node(int key, int h, float lvl);
-    ~Node();
+    int key;
+    Node* left;
+    Node* right;
+    int height;
 };
 
 class AVLTree {
 private:
     Node* root;
 
-    int height(Node* root) const;
-
     int getBalance(Node* root) const;
 
+    int height(Node* root) const;
+
     Node* rightRotate(Node* y, float coord);
-
     Node* leftRotate(Node* x, float coord);
-
-    void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0.0);
+    void balancingRotation(Node*& node, float coord);
 
     void remove(Node*& node, int key, float coord);
 
-    void balancingRotation(Node*& node, float coord);
-
-    void upHeight(Node*& node, float mul, float coord, float side);
-
-    void downHeight(Node*& node, float mul, float coord, float side);
+    void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0.0);
 
     void rebellion(Node*& node, float side, float coord);
 
+    void downHeight(Node*& node, float mul, float coord, float side);
+    void upHeight(Node*& node, float mul, float coord, float side);
+
 public:
     AVLTree();
-
     ~AVLTree();
 
-    void insert(int k);
+    const Node* rootCall() const;
 
     const Node* search(int k) const;
 
-    void delNode(int k);
+    void insert(int k);
 
-    const Node* rootCall() const;
+    void delNode(int k);
 };
