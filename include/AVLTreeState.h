@@ -16,5 +16,9 @@ protected:
 	void onExecuteOp(MainOp op) override;
     
 private:
+    AVLTree avl;
+    
+    void updateNodePositions(Node* node, float deltaTime);
+    void drawNode(const Node* node);
 
 };

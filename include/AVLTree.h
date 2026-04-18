@@ -38,13 +38,13 @@ private:
 
     void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0.0);
 
-    void remove(Node*& node, int key);
+    void remove(Node*& node, int key, float coord);
 
     void balancingRotation(Node*& node, float coord);
 
-    void upHeight(Node*& node, float mul, float coord, float side = 0.0);
+    void upHeight(Node*& node, float mul, float coord, float side);
 
-    void downHeight(Node*& node, float mul, float coord, float side = 0.0);
+    void downHeight(Node*& node, float mul, float coord, float side);
 
     void rebellion(Node*& node, float side, float coord);
 
