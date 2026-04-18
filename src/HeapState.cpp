@@ -1,367 +1,224 @@
 #include "HeapState.h"
-#include "State.h"
 #include <iostream>
 #include <cmath>
 #include "raymath.h"
 
 HeapState::HeapState() : DataStructureState()
 {
-    NextState = (int)STATE_HEAP; 
+    // Cài đặt trạng thái chuyển cảnh cho Heap (giả định STATE_HEAP = 3)
+    NextState = 3; 
 
-    controlTex.id = 0; 
+    // Cấu hình thông số hiển thị ban đầu
+    nodeRadius = 35.0f;
+    levelHeight = 100.0f;
+    arrayStartX = 100.0f;
+    arrayStartY = 850.0f;
+    arrayNodeSize = 60.0f;
 
-    controlBtnPos = { 30.0f, 750.0f }; 
-    isDraggingControlBtn = false;
-    isClickingControlBtn = false;
+    // Quản lý trạng thái Animation
+    currentStepIdx = -1;
+    activeCodeLine = -1;
+    isManualStepMode = false;
+    isAnimating = false;
+
+    // Quản lý Input
+    activeInputFocus = -1;
+    isCreateUserDefOpen = false;
     isPanelOpen = false;
-    panelAnimProgress = 0.0f;
-    activeSubPanel = HEAP_SUB_NONE;
-    activeInput = HEAP_INP_NONE;
-    previousActiveInput = HEAP_INP_NONE;
 
-    cursorIndex = 0;
-    cursorBlinkTimer = 0.0f;
-    cursorVisible = true;
-    textScrollX = 0.0f;
+    // Khởi tạo các nhãn Pseudo-code mặc định
+    currentOperationName = "MIN HEAP";
+    pseudoCodeLines = { "Select an operation", "to view algorithm", "steps here." };
 }
 
 HeapState::~HeapState()
 {
     heap.clear();
-    if (controlTex.id != 0) UnloadTexture(controlTex); 
+    visualNodes.clear();
+    animationQueue.clear();
 }
 
 void HeapState::loadAssets()
 {
+    // Load assets chung từ DataStructureState (Background, Fonts, Home Button)
     DataStructureState::loadAssets(); 
-    
-    if (controlTex.id != 0) {
-        UnloadTexture(controlTex);
-    }
-
-    Image ctrlImg = LoadImage("assets/control.png");
-    ImageResize(&ctrlImg, 75, 75); 
-    controlTex = LoadTextureFromImage(ctrlImg);
-    UnloadImage(ctrlImg);
-}
-
-bool HeapState::IsValidInputString(const std::string& str, HeapInput type)
-{
-    int currentDigitCount = 0;
-    for (size_t i = 0; i < str.length(); i++)
-    {
-        char c = str[i];
-        if (c == '-') {
-            if (i != 0) return false;
-        }
-        else if (c >= '0' && c <= '9') {
-            currentDigitCount++;
-            if (currentDigitCount > 4) return false; 
-        }
-        else {
-            return false; 
-        }
-    }
-    return true;
-}
-
-void HeapState::HandleTextInput(std::string& text, HeapInput type)
-{
-    if ((IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) && cursorIndex > 0) cursorIndex--;
-    if ((IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) && cursorIndex < (int)text.length()) cursorIndex++;
-
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_LEFT) || IsKeyPressedRepeat(KEY_RIGHT)) {
-        cursorVisible = true; cursorBlinkTimer = 0.0f;
-    }
-
-    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
-        if (cursorIndex > 0) {
-            text.erase(cursorIndex - 1, 1);
-            cursorIndex--;
-            cursorVisible = true; cursorBlinkTimer = 0.0f;
-        }
-    }
-    if (IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE)) {
-        if (cursorIndex < (int)text.length()) {
-            text.erase(cursorIndex, 1);
-            cursorVisible = true; cursorBlinkTimer = 0.0f;
-        }
-    }
-
-    int keyCode = GetKeyPressed();
-    while (keyCode > 0) 
-    {
-        char charToAdd = 0;
-
-        if (keyCode >= KEY_ZERO && keyCode <= KEY_NINE) charToAdd = '0' + (keyCode - KEY_ZERO);
-        else if (keyCode >= KEY_KP_0 && keyCode <= KEY_KP_9) charToAdd = '0' + (keyCode - KEY_KP_0);
-        else if (keyCode == KEY_MINUS || keyCode == KEY_KP_SUBTRACT) charToAdd = '-';
-        
-        if (charToAdd != 0) {
-            std::string temp = text;
-            temp.insert(cursorIndex, 1, charToAdd);
-
-            if (IsValidInputString(temp, type)) {
-                text = temp;
-                cursorIndex++;
-                cursorVisible = true; cursorBlinkTimer = 0.0f;
-            }
-        }
-        keyCode = GetKeyPressed();
-    }
-    while (GetCharPressed() > 0) {} 
 }
 
 void HeapState::update(float deltaTime)
 {
     Vector2 mousePos = GetMousePosition();
     
+    // 1. Cập nhật UI chung (Sliders, Home Button, Control Panel)
     DataStructureState::updateSharedUI(deltaTime, mousePos);
+    DataStructureState::updateControlPanel(deltaTime, mousePos);
 
-    Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
-    
-    if (CheckCollisionPointRec(mousePos, controlBtnBounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        isDraggingControlBtn = true;
-        isClickingControlBtn = true; 
-        dragOffset = { mousePos.x - controlBtnPos.x, mousePos.y - controlBtnPos.y };
+    // 2. Logic xử lý nhập liệu (Sử dụng inputBuffers từ lớp cha)
+    if (activeInputFocus != -1) {
+        HandleTextInput(inputBuffers[activeInputFocus], (activeInputFocus == 0));
     }
 
-    if (isDraggingControlBtn) {
-        if (isClickingControlBtn && Vector2Distance(mousePos, {controlBtnPos.x + dragOffset.x, controlBtnPos.y + dragOffset.y}) > 3.0f) {
-            isClickingControlBtn = false; 
-        }
-        controlBtnPos.x = mousePos.x - dragOffset.x;
-        controlBtnPos.y = mousePos.y - dragOffset.y;
-    }
-
-    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        if (isDraggingControlBtn) {
-            isDraggingControlBtn = false; 
-            if (isClickingControlBtn && CheckCollisionPointRec(mousePos, controlBtnBounds)) {
-                isPanelOpen = !isPanelOpen; 
-            }
-        }
-        isClickingControlBtn = false; 
-    }
-
-    float animSpeed = 4.0f; 
-    if (isPanelOpen) {
-        panelAnimProgress += deltaTime * animSpeed;
-        if (panelAnimProgress > 1.0f) panelAnimProgress = 1.0f;
-    } else {
-        panelAnimProgress -= deltaTime * animSpeed;
-        if (panelAnimProgress < 0.0f) {
-            panelAnimProgress = 0.0f; activeSubPanel = HEAP_SUB_NONE; 
-            activeInput = HEAP_INP_NONE; 
+    // 3. Hiệu ứng Lerp cho các Node (Di chuyển mượt mà tới vị trí đích)
+    for (auto& node : visualNodes) {
+        if (node.isVisible) {
+            // Tốc độ di chuyển phụ thuộc vào animSpeedMultiplier từ thanh slider
+            float speed = deltaTime * 8.0f * animSpeedMultiplier;
+            node.currentPos = Vector2Lerp(node.currentPos, node.treeTarget, speed);
         }
     }
 
-    if (activeInput != previousActiveInput) {
-        if (activeInput == HEAP_INP_INSERT_VAL) cursorIndex = inputInsertVal.length();
-        
-        textScrollX = 0.0f; 
-        cursorBlinkTimer = 0.0f;
-        cursorVisible = true;
-        previousActiveInput = activeInput;
-    }
-
-    if (activeInput != HEAP_INP_NONE) {
-        cursorBlinkTimer += deltaTime;
-        if (cursorBlinkTimer >= 0.5f) { 
-            cursorVisible = !cursorVisible;
-            cursorBlinkTimer = 0.0f;
-        }
-
-        if (activeInput == HEAP_INP_INSERT_VAL) HandleTextInput(inputInsertVal, activeInput);
-        
-        if (IsKeyPressed(KEY_ENTER)) {
-            try {
-                if (activeInput == HEAP_INP_INSERT_VAL && !inputInsertVal.empty()) {
-                    heap.insert(std::stoi(inputInsertVal));
-                    inputInsertVal.clear();
-                }
-            } catch (...) {}
-            activeInput = HEAP_INP_NONE;
-        }
+    // 4. Kiểm tra sự thay đổi của Zoom để tính toán lại layout
+    static float lastZoom = 1.0f;
+    if (zoomMultiplier != lastZoom) {
+        updateTargetLayout();
+        lastZoom = zoomMultiplier;
     }
 }
 
-bool HeapState::DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected)
+void HeapState::onExecuteOp(MainOp op)
 {
-    Rectangle bounds = {pos.x, pos.y, width, height};
-    bool isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
-    
-    Color bgColor = (isHovered || isSelected) ? BLACK : Color{ 102, 191, 255, 255 }; 
-    DrawRectangleRec(bounds, bgColor);
+    // Dừng animation cũ nếu có
+    isAnimating = false;
+    resetNodeColors();
 
-    float fontSize = 22.0f;
-    Vector2 textSize = MeasureTextEx(listFont, text, fontSize, 1.0f);
-    Vector2 textPos = { pos.x + (width - textSize.x) / 2.0f, pos.y + (height - textSize.y) / 2.0f };
-    DrawTextEx(listFont, text, textPos, fontSize, 1.0f, WHITE);
-    
-    return (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON));
-}
-
-bool HeapState::DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height)
-{
-    Rectangle bounds = { pos.x, pos.y, width, height };
-    bool isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
-
-    DrawRectangleRec(bounds, BLACK); 
-    DrawRectangleLinesEx(bounds, 2.0f, isActive ? RED : DARKGRAY); 
-
-    float fontSize = 22.0f; 
-    float padding = 8.0f;
-    float textHeight = MeasureTextEx(numberFont, "0", fontSize, 1.0f).y; 
-    float textDrawY = pos.y + (height - textHeight) / 2.0f; 
-    
-    if (isActive) {
-        std::string textBeforeCursor = text.substr(0, cursorIndex);
-        float cursorOffsetX = MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
-        float maxVisibleWidth = width - (padding * 2);
-
-        if (cursorOffsetX - textScrollX > maxVisibleWidth) {
-            textScrollX = cursorOffsetX - maxVisibleWidth;
-        } 
-        else if (cursorOffsetX - textScrollX < 0) {
-            textScrollX = cursorOffsetX;
-        }
-    } else {
-        textScrollX = 0; 
-    }
-
-    BeginScissorMode((int)pos.x, (int)pos.y, (int)width, (int)height);
-    
-    Vector2 textPos = { pos.x + padding - textScrollX, textDrawY };
-    DrawTextEx(numberFont, text.c_str(), textPos, fontSize, 1.0f, WHITE);
-
-    if (isActive && cursorVisible) {
-        std::string textBeforeCursor = text.substr(0, cursorIndex);
-        float cursorX = pos.x + padding - textScrollX + MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
-        DrawLineEx({cursorX, textDrawY}, {cursorX, textDrawY + textHeight}, 2.0f, WHITE);
-    }
-
-    EndScissorMode();
-
-    float startX = controlBtnPos.x + controlTex.width + 15.0f;
-    BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-
-    if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) return true; 
-    return false;
-}
-
-void HeapState::DrawLabel(Vector2 pos, const char* text)
-{
-    float fontSize = 22.0f;
-    DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
-}
-
-void HeapState::draw()
-{
-    DataStructureState::drawSharedUI();
-
-    const char* titleText = "HEAP VISUALIZATION";
-    DrawTextEx(listFont, titleText, { (1800.0f - MeasureTextEx(listFont, titleText, 55, 6.5f).x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
-
-    // TODO: Draw Heap Tree Here (Chưa vẽ cây theo yêu cầu)
-
-    Vector2 mousePos = GetMousePosition();
-    Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
-    
-    Color controlColor = CheckCollisionPointRec(mousePos, controlBtnBounds) ? Fade(WHITE, 0.7f) : WHITE;
-    DrawTextureV(controlTex, controlBtnPos, controlColor);
-    
-    if (panelAnimProgress > 0.0f) 
-    {
-        float easedProgress = sin(panelAnimProgress * PI / 2.0f); 
-
-        float mainItemWidth = 125.0f; 
-        float mainItemHeight = 45.0f;
-        float gap = 8.0f; 
-
-        float startX = controlBtnPos.x + controlTex.width + 15.0f;
-        float startY = controlBtnPos.y; 
-        
-        BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-        float panelX = startX - mainItemWidth * (1.0f - easedProgress);
-
-        const char* mainItems[] = {"Create", "Insert", "Delete"};
-        HeapSubPanel itemSubPanels[] = {HEAP_SUB_CREATE, HEAP_SUB_INSERT, HEAP_SUB_DELETE};
-
-        for (int i = 0; i < 3; i++) {
-            float itemY = startY + i * (mainItemHeight + gap);
-            bool isSelected = (activeSubPanel == itemSubPanels[i]);
-
-            bool isClicked = DrawButtonText({panelX, itemY}, mainItems[i], mainItemWidth, mainItemHeight, isSelected);
-
-            if (isClicked && panelAnimProgress >= 1.0f) {
-                if (activeSubPanel == itemSubPanels[i]) activeSubPanel = HEAP_SUB_NONE; 
-                else { activeSubPanel = itemSubPanels[i]; }
-            }
-        }
-
-        if (activeSubPanel != HEAP_SUB_NONE) 
-        {
-            float subX = panelX + mainItemWidth + gap; 
-            float labelFontSize = 22.0f; 
-
-            if (activeSubPanel == HEAP_SUB_CREATE) {
-                float sy = startY + 0 * (mainItemHeight + gap); 
-                float cx = subX;
-
-                if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { 
+    try {
+        switch (op) {
+            case OP_SLOT1: // CREATE
+                if (!inputBuffers[0].empty()) {
                     heap.clear();
-                }
-                cx += 90 + gap;
-
-                if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
-                    heap.clear();
-                    int NumNode = GetRandomValue(1, 15);
-                    std::vector<int> randomData;
-                    for(int i = 0; i < NumNode; i++) randomData.push_back(GetRandomValue(1, 99));
-                    heap.buildHeap(randomData);
-                }
-            }
-            else if (activeSubPanel == HEAP_SUB_INSERT) {
-                float sy = startY + 1 * (mainItemHeight + gap); 
-                float cx = subX;
-
-                DrawLabel({cx, sy}, "Value =");
-                cx += MeasureTextEx(listFont, "Value =", labelFontSize, 1.0f).x + gap;
-
-                if (DrawTextBox({cx, sy}, inputInsertVal, activeInput == HEAP_INP_INSERT_VAL, 100, mainItemHeight)) activeInput = HEAP_INP_INSERT_VAL;
-                cx += 100 + gap;
-
-                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
-                    if (!inputInsertVal.empty()) {
-                        try { heap.insert(std::stoi(inputInsertVal)); inputInsertVal.clear(); activeInput = HEAP_INP_NONE; } catch (...) {}
+                    std::vector<int> vals;
+                    std::string temp = "";
+                    for (char c : inputBuffers[0]) {
+                        if (c == ',') {
+                            if (!temp.empty()) { vals.push_back(std::stoi(temp)); temp = ""; }
+                        } else temp += c;
                     }
+                    if (!temp.empty()) vals.push_back(std::stoi(temp));
+                    
+                    heap.buildHeap(vals);
+                    syncVisuals();
+                    inputBuffers[0].clear();
+                    isCreateUserDefOpen = false;
                 }
-            }
-            else if (activeSubPanel == HEAP_SUB_DELETE) {
-                float sy = startY + 2 * (mainItemHeight + gap);
-                float cx = subX;
+                break;
 
-                if (DrawButtonText({cx, sy}, "POP", 90, mainItemHeight)) {
-                    if (!heap.isEmpty()) {
-                        try { heap.extractTop(); } catch (...) {} 
+            case OP_SLOT2: // INSERT
+                if (!inputBuffers[1].empty()) {
+                    int val = std::stoi(inputBuffers[1]);
+                    heap.insert(val);
+                    
+                    // Thiết lập Animation Step-by-step
+                    std::vector<std::string> code = {
+                        "void insert(int val) {",
+                        "  data.push_back(val);",
+                        "  int i = size - 1;",
+                        "  while (i > 0 && data[parent] > data[i]) {",
+                        "    swap(data[parent], data[i]);",
+                        "    i = parent;",
+                        "  }",
+                        "}"
+                    };
+                    startAlgorithmAnimation(heap.getSteps(), "INSERT");
+                    currentPseudoCode = code;
+                    inputBuffers[1].clear();
+                }
+                break;
+
+            case OP_SLOT3: // SEARCH
+                if (!inputBuffers[2].empty()) {
+                    int target = std::stoi(inputBuffers[2]);
+                    bool found = false;
+                    syncVisuals();
+                    for (size_t i = 0; i < visualNodes.size(); i++) {
+                        if (visualNodes[i].value == target) {
+                            visualNodes[i].color = ORANGE;
+                            found = true;
+                        }
                     }
+                    if (!found) {
+                        inputErrorMsg = "Value not found!";
+                        inputErrorTimer = 2.0f;
+                        currentErrorSlot = 2;
+                    }
+                    inputBuffers[2].clear();
                 }
-            }
-        }
+                break;
 
-        if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f) {
-            DrawTextEx(numberFont, inputErrorMsg.c_str(), { panelX + mainItemWidth + gap + 90.0f, startY + 200.0f }, 18.0f, 1.0f, RED);
-        }
+            case OP_SLOT4: // UPDATE (Update value at index)
+                if (!inputBuffers[3].empty() && !inputBuffers[4].empty()) {
+                    // Giả định slot 3 là Index, slot 4 là New Value
+                    // Note: BinaryHeap cần hàm updateIndex(idx, val) để log steps
+                    // Ở đây demo logic cơ bản:
+                    inputBuffers[3].clear(); inputBuffers[4].clear();
+                }
+                break;
 
-        EndScissorMode();    
+            case OP_SLOT5: // DELETE (Extract Top)
+                if (!heap.isEmpty()) {
+                    heap.extractTop();
+                    std::vector<std::string> code = {
+                        "int extractTop() {",
+                        "  int root = data[0];",
+                        "  data[0] = data.back(); data.pop_back();",
+                        "  heapifyDown(0);",
+                        "  return root;",
+                        "}"
+                    };
+                    startAlgorithmAnimation(heap.getSteps(), "EXTRACT TOP");
+                    currentPseudoCode = code;
+                } else {
+                    inputErrorMsg = "Heap is empty!";
+                    inputErrorTimer = 2.0f;
+                    currentErrorSlot = 5;
+                }
+                break;
+
+            default: break;
+        }
+    } catch (...) {
+        inputErrorMsg = "Invalid Input!";
+        inputErrorTimer = 2.0f;
     }
+    activeInputFocus = -1;
 }
 
-void HeapState::DrawSubMenuContent() {
-    // TODO: Implement heap submenu drawing
+void HeapState::syncVisuals()
+{
+    const auto& data = heap.getData();
+    
+    // Đồng bộ số lượng node
+    while (visualNodes.size() < data.size()) {
+        HeapVisualNode newNode;
+        newNode.value = 0;
+        newNode.currentPos = { (float)GetScreenWidth() / 2, -100 }; // Bay từ trên xuống
+        newNode.color = SKYBLUE;
+        newNode.isVisible = true;
+        visualNodes.push_back(newNode);
+    }
+    while (visualNodes.size() > data.size()) {
+        visualNodes.pop_back();
+    }
+
+    // Cập nhật giá trị
+    for (size_t i = 0; i < data.size(); i++) {
+        visualNodes[i].value = data[i];
+    }
+
+    updateTargetLayout();
 }
 
-void HeapState::onExecuteOp(MainOp op) {
-    // TODO: Implement heap operation execution
+void HeapState::startAlgorithmAnimation(const std::vector<HeapStep>& steps, std::string opName)
+{
+    syncVisuals();
+    animationQueue = steps;
+    currentStepIdx = -1;
+    currentOperationName = opName;
+    isAnimating = true;
+    animTimer = 0.0f; 
+}
+
+void HeapState::resetNodeColors()
+{
+    for (auto& node : visualNodes) {
+        node.color = SKYBLUE;
+    }
 }
