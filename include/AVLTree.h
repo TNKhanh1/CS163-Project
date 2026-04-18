@@ -4,14 +4,14 @@
 #include <raymath.h>
 
 float twoPower(int height) {
-    if (height == 0) return 1.0;
-    if (height > 0) return twoPower(height - 1)*2.0;
-    else return twoPower(height + 1)*0.5;
+    if (height == 0) return 1.0f;
+    if (height > 0) return twoPower(height - 1)*2.0f;
+    else return twoPower(height + 1)*0.5f;
 }
 
 struct Node {
     Node(int key);
-    Node(int key, int h, float lvl);
+    Node(int key, float h, float lvl);
     ~Node();
 
     Vector2 position;
@@ -38,7 +38,7 @@ private:
 
     void remove(Node*& node, int key, float coord);
 
-    void insertTo(Node*& node, int key, float coord, int h = 0, float w = 0.0);
+    void insertTo(Node*& node, int key, float coord, float h = 0.0f, float w = 0.0f);
 
     void rebellion(Node*& node, float side, float coord);
 

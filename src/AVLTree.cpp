@@ -6,7 +6,7 @@ Node :: ~Node() {
         delete left;
         delete right;
 }
-Node :: Node(int key, int h, float w): key(key), left(nullptr), right(nullptr), height(1), targetPosition({w + 900.0f, h + 50}) {}
+Node :: Node(int key, float h, float w): key(key), left(nullptr), right(nullptr), height(1), position({w + 900.0f, h + 50.0f}), targetPosition({w + 900.0f, h + 50.0f}) {}
 
 int AVLTree :: height(Node* root) const {
     if (root == nullptr)
@@ -111,16 +111,16 @@ void AVLTree :: remove(Node*& node, int key, float coord) {
     balancingRotation(node, coord*4.0f);
 }
 
-void AVLTree :: insertTo(Node*& node, int key, float coord, int h, float w) {
+void AVLTree :: insertTo(Node*& node, int key, float coord, float h, float w) {
     if (node == nullptr) {
         node = new Node(key, h, w);
         return;
     }
 
     if (key < node->key)
-        insertTo(node->left, key, coord*0.5f, h + 50, w - coord);
+        insertTo(node->left, key, coord*0.5f, h + 50.0f, w - coord);
     else if (key > node->key)
-        insertTo(node->right, key, coord*0.5f, h + 50, w + coord);
+        insertTo(node->right, key, coord*0.5f, h + 50.0f, w + coord);
     else return;
 
     node->height = 1 + std::max(height(node->left), height(node->right));
