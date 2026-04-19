@@ -19,7 +19,17 @@ private:
     int activeInputFocus;
     int previousInputFocus;
 
-    void DrawSubMenuContent() override;
+
+
+
+    std::map<int, Vector2> nodePositions; // Lưu vị trí các đỉnh trên màn hình
+    std::vector<Edge> targetMST;          // Lưu kết quả Kruskal/Prim
+    int currentAnimIndex;                 
+    enum AnimType { NONE, KRUSKAL, PRIM } currentAnimType;
+
+    void updateNodePositions();           
     
+    void DrawSubMenuContent() override;
     void onExecuteOp(MainOp op) override;
+    void handleAnimationStep() override;
 };

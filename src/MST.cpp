@@ -63,6 +63,16 @@ void MST::clear()
     vertices.clear();
 }
 
+const std::vector<Edge>& MST::getEdges() const
+{
+    return edges;
+}
+
+const std::set<int>& MST::getVertices() const
+{
+    return vertices;
+}
+
 void MST::insertEdge(int u, int v, int weight)
 {
     edges.push_back({u, v, weight});
@@ -188,6 +198,5 @@ std::vector<Edge> MST::prim(int startVertex)
             }
         }
     }
-
     return result;
 }
