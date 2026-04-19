@@ -46,8 +46,8 @@ void MSTState::updateNodePositions()
     {
         nodePositions[v] =
         {
-            center.x + cos(angle) * radius,
-            center.y + sin(angle) * radius
+            static_cast<float>(center.x + cos(angle) * radius),
+            static_cast<float>(center.y + sin(angle) * radius)
         };
         angle += angleStep;
     }
