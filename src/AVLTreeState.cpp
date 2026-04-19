@@ -37,15 +37,77 @@ void AVLTreeState::update(float deltaTime)
     updateTargetLayouts(const_cast<Node*>(avl.rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
     updateNodePositions(const_cast<Node*>(avl.rootCall()), deltaTime);
 
+    if (currentTask == TASK_TRAVERSE_INSERT) {
+    animTimer -= deltaTime;
+    
+    if (animTimer <= 0.0f) {
+        if (searchTargetValue < searchPointer->key) {
+            if (searchPointer->left != nullptr) {
+                searchPointer = searchPointer->left;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                animTimer = 0.4f;
+            } else {
+                avl.insert(searchTargetValue);
+                resetNodeColors(const_cast<Node*>(avl.rootCall()));
+                
+                const Node* newObj = avl.search(searchTargetValue);
+                if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
+                currentTask = TASK_HIGHLIGHT_NEW;
+                animTimer = 1.0f;
+            }
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            if (searchPointer->right != nullptr) {
+                searchPointer = searchPointer->right;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                animTimer = 0.4f; 
+            } else {
+                avl.insert(searchTargetValue);
+                resetNodeColors(const_cast<Node*>(avl.rootCall()));
+                
+                const Node* newObj = avl.search(searchTargetValue);
+                if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
+                currentTask = TASK_HIGHLIGHT_NEW;
+                animTimer = 1.0f;
+            }
+        } 
+        else {
+            resetNodeColors(const_cast<Node*>(avl.rootCall()));
+            currentTask = TASK_NONE;
+            inputErrorMsg = "Value already in tree!";
+            inputErrorTimer = 2.0f;
+            currentErrorSlot = 0;
+        }
+    }
+}
+
     if (currentTask == TASK_HIGHLIGHT_NEW) {
         animTimer -= deltaTime; // Tick down the clock
         
         if (animTimer <= 0.0f) {
             // Time is up! Reset the colors and clear the task.
             resetNodeColors(const_cast<Node*>(avl.rootCall()));
-            currentTask = TASK_NONE;
+            currentTask = TASK_WAIT_FOR_BALANCE;
         }
     }
+    else if (currentTask == TASK_WAIT_FOR_BALANCE) {
+    animTimer -= deltaTime;
+    
+    if (animTimer <= 0.0f) {
+        // Time is up! Try to do exactly ONE rotation.
+        bool didRotate = avl.balance();
+        
+        if (didRotate) {
+            // A rotation happened! Wait 1 second before doing the next one
+            // (This perfectly separates Right-Left rotations into two steps!)
+            animTimer = 0.5f; 
+        } else {
+            // No rotations needed, tree is fully balanced! Finish up.
+            currentTask = TASK_NONE;
+            animTimer = 1.5f;
+        }
+    }
+}
 }
 
 void AVLTreeState::draw()
@@ -59,7 +121,7 @@ void AVLTreeState::draw()
     drawNode(avl.rootCall());
 
     DrawTextureV(controlTex, controlBtnPos, WHITE);
-    DrawSideMenuFrame({"Insert", "Delete", "Search"});
+    DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear"});
 }
 
 void AVLTreeState::DrawSubMenuContent()
@@ -106,6 +168,14 @@ void AVLTreeState::DrawSubMenuContent()
                 onExecuteOp(OP_SLOT3);
             }
             break;
+
+        case OP_SLOT4: // Clear
+            // Shift the Y position down for the 3rd slot
+
+            if (DrawButtonText({subX + 90, startY + 3 * (mainHeight + gap)}, "ACCEPT CLEAR", 150, mainHeight, false)) {
+                onExecuteOp(OP_SLOT4);
+            }
+            break;
             
         default:
             break;
@@ -114,6 +184,20 @@ void AVLTreeState::DrawSubMenuContent()
 
 void AVLTreeState::onExecuteOp(MainOp op)
 {
+    
+		if (op == OP_SLOT4) {
+			// 1. Wipe the tree data
+            avl.clear();
+
+            // 2. Reset the visualizer states so it doesn't look for nodes that no longer exist
+            currentTask = TASK_NONE;
+            animTimer = 0.0f;
+
+            // 3. Clear any error messages or active inputs
+            inputErrorMsg = "";
+            activeInputFocus = -1;
+            return;
+		}
 	std::string currentInput = "";
 	int slotIndex = 0;
 
@@ -137,19 +221,25 @@ void AVLTreeState::onExecuteOp(MainOp op)
 		resetNodeColors(const_cast<Node*>(avl.rootCall()));
 
         if (op == OP_SLOT1) { // OP_INSERT
-			avl.insert(value);
-			
-            // 1. Find the node we just inserted
-			const Node* newObj = avl.search(value);
-			if (newObj != nullptr) {
-                // 2. Color it GREEN so it stands out!
-				const_cast<Node*>(newObj)->color = GREEN;
+			if (avl.rootCall() == nullptr) {
+                avl.insert(value);
+                const Node* newObj = avl.search(value);
+                if (newObj != nullptr) {
+                    const_cast<Node*>(newObj)->color = GREEN;
+                    currentTask = TASK_HIGHLIGHT_NEW;
+                    animTimer = 1.5f; 
+                }
+            }
+            else {
+                // If nodes exist, start YELLOW search traversal!
+                searchTargetValue = value;
+                searchPointer = avl.rootCall();
+                const_cast<Node*>(searchPointer)->color = YELLOW;
                 
-                // 3. Start the animation timer for 1.5 seconds
-				currentTask = TASK_HIGHLIGHT_NEW;
-				animTimer = 1.5f; 
-			}
-			inputBuffers[1].clear();
+                currentTask = TASK_TRAVERSE_INSERT;
+                animTimer = 0.8f; 
+            }
+		    inputBuffers[1].clear();
 		}
 		else if (op == OP_SLOT2) {
 			avl.delNode(value);

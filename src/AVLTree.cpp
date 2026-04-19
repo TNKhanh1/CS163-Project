@@ -54,22 +54,60 @@ Node* AVLTree :: rightRotate(Node* y, float coord) {
     return x;
 }
 
-void AVLTree :: balancingRotation(Node*& node, float coord) {
+// void AVLTree :: balancingRotation(Node*& node, float coord) {
+//     int balance = getBalance(node);
+
+//     if (balance > 1 && getBalance(node->left) >= 0) node = rightRotate(node, coord);
+
+//     else if (balance < -1 && getBalance(node->right) <= 0) node = leftRotate(node, coord);
+
+//     else if (balance > 1 && getBalance(node->left) < 0) {
+//         node->left = leftRotate(node->left, coord);
+//         node = rightRotate(node, coord);
+//     }
+
+//     else if (balance < -1 && getBalance(node->right) > 0) {
+//         node->right = rightRotate(node->right, coord);
+//         node = leftRotate(node, coord);
+//     }
+// }
+
+bool AVLTree::balancingRotation(Node*& node) {
+    if (node == nullptr) return false;
+
+    // Go to the bottom of the tree first
+    if (balancingRotation(node->left)) return true;
+    if (balancingRotation(node->right)) return true;
+
+    // Check balance of current node
+    node->height = 1 + std::max(height(node->left), height(node->right));
     int balance = getBalance(node);
 
-    if (balance > 1 && getBalance(node->left) >= 0) node = rightRotate(node, coord);
-
-    else if (balance < -1 && getBalance(node->right) <= 0) node = leftRotate(node, coord);
-
-    else if (balance > 1 && getBalance(node->left) < 0) {
-        node->left = leftRotate(node->left, coord);
-        node = rightRotate(node, coord);
+    // Left Heavy
+    if (balance > 1) {
+        if (getBalance(node->left) < 0) {
+            // Left-Right Case: Do the Left rotation first!
+            node->left = leftRotate(node->left, 1.0f); // Adjust "1.0f" coord if your leftRotate needs it
+            return true; // Stop here so UI can pause!
+        }
+        // Left-Left Case
+        node = rightRotate(node, 1.0f);
+        return true; 
+    }
+    
+    // Right Heavy
+    if (balance < -1) {
+        if (getBalance(node->right) > 0) {
+            // Right-Left Case: Do the Right rotation first!
+            node->right = rightRotate(node->right, 1.0f); 
+            return true; // Stop here so UI can pause!
+        }
+        // Right-Right Case
+        node = leftRotate(node, 1.0f);
+        return true;
     }
 
-    else if (balance < -1 && getBalance(node->right) > 0) {
-        node->right = rightRotate(node->right, coord);
-        node = leftRotate(node, coord);
-    }
+    return false; // Already balanced
 }
 
 void AVLTree :: remove(Node*& node, int key, float coord) {
@@ -108,24 +146,24 @@ void AVLTree :: remove(Node*& node, int key, float coord) {
 
     node->height = 1 + std::max(height(node->left), height(node->right));
 
-    balancingRotation(node, coord*4.0f);
+//    balancingRotation(node, coord*4.0f);
 }
 
-void AVLTree :: insertTo(Node*& node, int key, float coord, float h, float w) {
+Node* AVLTree :: insertTo(Node*& node, int key, float coord, float h, float w) {
     if (node == nullptr) {
         node = new Node(key, h, w);
-        return;
+        return node;
     }
 
     if (key < node->key)
         insertTo(node->left, key, coord*0.5f, h + 50.0f, w - coord);
     else if (key > node->key)
         insertTo(node->right, key, coord*0.5f, h + 50.0f, w + coord);
-    else return;
+    else return node;
 
     node->height = 1 + std::max(height(node->left), height(node->right));
 
-    balancingRotation(node, coord*4.0f);
+    return node;
 }
 
 void AVLTree :: rebellion(Node*& node, float side, float coord) {
@@ -167,6 +205,10 @@ void AVLTree :: insert(int k) {
     insertTo(root,k, twoPower(height(root) - 3)*20.0f);
 }
 
+bool AVLTree :: balance() {
+    return balancingRotation(root);
+}
+
 void AVLTree :: delNode(int k) {
     remove(root, k, twoPower(height(root) - 3)*20.0f);
 }
@@ -179,4 +221,11 @@ const Node* AVLTree :: search(int k) const {
         else break;
     }
     return cur;
+}
+
+void AVLTree :: clear() {
+    if (root != nullptr) {
+        delete root;
+        root = nullptr;
+    }
 }

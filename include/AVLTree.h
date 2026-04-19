@@ -34,16 +34,18 @@ private:
 
     Node* rightRotate(Node* y, float coord);
     Node* leftRotate(Node* x, float coord);
-    void balancingRotation(Node*& node, float coord);
+    bool balancingRotation(Node*& node);
 
     void remove(Node*& node, int key, float coord);
 
-    void insertTo(Node*& node, int key, float coord, float h = 0.0f, float w = 0.0f);
+    Node* insertTo(Node*& node, int key, float coord, float h = 0.0f, float w = 0.0f);
 
     void rebellion(Node*& node, float side, float coord);
 
     void downHeight(Node*& node, float mul, float coord, float side);
     void upHeight(Node*& node, float mul, float coord, float side);
+
+    int fixHeights(Node* node);
 
 public:
     AVLTree();
@@ -55,5 +57,9 @@ public:
 
     void insert(int k);
 
+    bool balance();
+
     void delNode(int k);
+
+    void clear();
 };
