@@ -3,7 +3,7 @@
 #include <raylib.h>
 #include <raymath.h>
 
-float twoPower(int height) {
+inline float twoPower(int height) {
     if (height == 0) return 1.0f;
     if (height > 0) return twoPower(height - 1)*2.0f;
     else return twoPower(height + 1)*0.5f;
