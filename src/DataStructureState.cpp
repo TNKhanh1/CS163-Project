@@ -24,6 +24,9 @@ DataStructureState::DataStructureState()
 	animTimer = 0.0f;
 	isAnimating = false;
 
+	isAutoPlay = true; 
+    stepForwardRequested = false;
+
 	controlBtnPos = { 30.0f, 750.0f }; 
 	isDraggingControlBtn = false;
 	isClickingControlBtn = false;
@@ -73,9 +76,24 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 	}
 
 	// 1. Centralized Animation Trigger
-	if (isAnimating && CheckStepReady(deltaTime, 0.7f)) {
-		handleAnimationStep(); // Calls the child's implementation
-	}
+	if (isAnimating) 
+    {
+        if (isAutoPlay) 
+        {
+            // AUTO MODE: Follow the internal timer
+            if (CheckStepReady(deltaTime, 0.7f)) {
+                handleAnimationStep();
+            }
+        } 
+        else 
+        {
+            // MANUAL MODE: Only advance if the user clicked the Step button
+            if (stepForwardRequested) {
+                handleAnimationStep();
+                stepForwardRequested = false; // Reset immediately
+            }
+        }
+    }
 
 	// 2. Centralized ENTER Key Logic
 	if (IsKeyPressed(KEY_ENTER) && activeMainOp != OP_NONE) {
@@ -165,6 +183,28 @@ void DataStructureState::drawSharedUI()
 	DrawRectangleRounded({ zoomSliderBounds.x, zoomSliderBounds.y, zoomFillWidth, zoomSliderBounds.height }, 1.0f, 8, SKYBLUE); 
 	DrawCircle((int)(zoomSliderBounds.x + zoomFillWidth), (int)(zoomSliderBounds.y + zoomSliderBounds.height / 2.0f), 12.0f, DARKBLUE);
 	DrawTextEx(numberFont, TextFormat("%d%%", (int)(zoomMultiplier * 100)), { zoomSliderBounds.x + zoomSliderBounds.width + 15.0f, zoomSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
+
+	// Step-by-step control buttons
+	float buttonWidth = 150.0f;
+    float stepBtnWidth = 100.0f;
+    float gap = 15.0f;
+    // Position the mode toggle to the left of the Zoom slider
+    float modeToggleX = zoomSliderBounds.x - buttonWidth - gap;
+    // Position the step button to the left of the Mode toggle
+    float stepBtnX = modeToggleX - stepBtnWidth - gap;
+    // Center vertically relative to the zoom slider height
+    float stepY = zoomSliderBounds.y - 12.0f; 
+    // 1. Mode Toggle Button
+    const char* modeLabel = isAutoPlay ? "AUTO" : "MANUAL";
+    if (DrawButtonText({modeToggleX, stepY}, modeLabel, buttonWidth, 35, !isAutoPlay)) {
+        isAutoPlay = !isAutoPlay;
+    }
+    // 2. Step Forward Button (Only visible during Manual mode + Animating)
+    if (!isAutoPlay && isAnimating) {
+        if (DrawButtonText({stepBtnX, stepY}, "Step >>", stepBtnWidth, 35, false)) {
+            stepForwardRequested = true;
+        }
+    }
 
 	// Render active error message if exists
 	if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f) {
