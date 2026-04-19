@@ -19,7 +19,8 @@ protected:
     
 private:
     AVLTree avl;
-    std::string inputBuffer;
+    int previousInputFocus;
+    int activeInputFocus;
 
     const int TASK_NONE = 0;
     const int TASK_HIGHLIGHT_NEW = 1;
@@ -35,5 +36,6 @@ private:
     
     void updateNodePositions(Node* node, float deltaTime);
     void drawNode(const Node* node);
+    void updateTargetLayouts(Node* node, float x, float y, float hGap);
 
 };

@@ -3,6 +3,8 @@
 AVLTreeState::AVLTreeState() : DataStructureState()
 {
     NextState = (int)STATE_AVLTREE;
+    activeInputFocus = -1;
+    previousInputFocus = -1;
 }
 
 AVLTreeState::~AVLTreeState()
@@ -18,22 +20,21 @@ void AVLTreeState::loadAssets()
 void AVLTreeState::update(float deltaTime)
 {
     Vector2 mousePos = GetMousePosition();
-    
     DataStructureState::updateSharedUI(deltaTime, mousePos);
-
     DataStructureState::updateControlPanel(deltaTime, mousePos);
     
-    if (activeMainOp != OP_NONE) {
-        HandleTextInput(inputBuffer, false); // false = single integer, no commas
+    if (activeInputFocus != previousInputFocus) {
+        cursorIndex = (activeInputFocus == -1) ? 0 : inputBuffers[activeInputFocus].length();
+        textScrollX = 0.0f; cursorVisible = true;
+        previousInputFocus = activeInputFocus;
     }
 
-    // 2. Handle Text Cursor Blinking
-    cursorBlinkTimer += deltaTime;
-    if (cursorBlinkTimer >= 0.5f) {
-        cursorVisible = !cursorVisible;
-        cursorBlinkTimer = 0.0f;
+    if (activeInputFocus != -1) {
+        HandleTextInput(inputBuffers[activeInputFocus], false);
     }
 
+    // Calculate perfect target coordinates before gliding them
+    updateTargetLayouts(const_cast<Node*>(avl.rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
     updateNodePositions(const_cast<Node*>(avl.rootCall()), deltaTime);
 
     if (currentTask == TASK_HIGHLIGHT_NEW) {
@@ -56,6 +57,9 @@ void AVLTreeState::draw()
     DrawTextEx(listFont, titleText, { (1800.0f - titleSize.x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
     drawNode(avl.rootCall());
+
+    DrawTextureV(controlTex, controlBtnPos, WHITE);
+    DrawSideMenuFrame({"Insert", "Delete", "Search"});
 }
 
 void AVLTreeState::DrawSubMenuContent()
@@ -71,10 +75,10 @@ void AVLTreeState::DrawSubMenuContent()
     switch (activeMainOp) {
         case OP_SLOT1: // Insert
             DrawLabel({subX, startY}, "Value=");
-            
+
             // Draw the text box
-            DrawTextBox({subX + 80, startY}, inputBuffer, true, 100, mainHeight, cursorIndex, textScrollX, cursorVisible);
-            
+            if (DrawTextBox({subX + 80, startY}, inputBuffers[1], activeInputFocus == 1, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 1;
+
             // Draw the "GO" button. If clicked, manually trigger onExecuteOp!
             if (DrawButtonText({subX + 190, startY}, "GO", 50, mainHeight, false)) {
                 onExecuteOp(OP_SLOT1);
@@ -84,9 +88,9 @@ void AVLTreeState::DrawSubMenuContent()
         case OP_SLOT2: // Delete
             // Shift the Y position down for the 2nd slot
             DrawLabel({subX, startY + mainHeight + gap}, "Value=");
-            
-            DrawTextBox({subX + 80, startY + mainHeight + gap}, inputBuffer, true, 100, mainHeight, cursorIndex, textScrollX, cursorVisible);
-            
+
+            if (DrawTextBox({subX + 80, startY + mainHeight + gap}, inputBuffers[2], activeInputFocus == 2, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 2;
+
             if (DrawButtonText({subX + 190, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
                 onExecuteOp(OP_SLOT2);
             }
@@ -95,8 +99,8 @@ void AVLTreeState::DrawSubMenuContent()
         case OP_SLOT3: // Search
             // Shift the Y position down for the 3rd slot
             DrawLabel({subX, startY + 2 * (mainHeight + gap)}, "Value=");
-            
-            DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffer, true, 100, mainHeight, cursorIndex, textScrollX, cursorVisible);
+
+            if (DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffers[3], activeInputFocus == 3, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 3; 
             
             if (DrawButtonText({subX + 190, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
                 onExecuteOp(OP_SLOT3);
@@ -110,58 +114,70 @@ void AVLTreeState::DrawSubMenuContent()
 
 void AVLTreeState::onExecuteOp(MainOp op)
 {
-    if (inputBuffer.empty()) {
-        currentErrorSlot = (int)op - 1;
-        inputErrorMsg = "Value cannot be empty!";
-        inputErrorTimer = 2.5f;
-        return;
-    }
+	std::string currentInput = "";
+	int slotIndex = 0;
 
-    try {
-        int value = std::stoi(inputBuffer);
-        
+	// Determine which buffer we are looking at based on the active menu slot
+	if (op == OP_SLOT1) { currentInput = inputBuffers[1]; slotIndex = 1; }
+	else if (op == OP_SLOT2) { currentInput = inputBuffers[2]; slotIndex = 2; }
+	else if (op == OP_SLOT3) { currentInput = inputBuffers[3]; slotIndex = 3; }
+
+	// 1. Check for empty input
+	if (currentInput.empty()) {
+		currentErrorSlot = slotIndex; 
+		inputErrorMsg = "Value cannot be empty!";
+		inputErrorTimer = 2.5f;
+		return;
+	}
+
+	try {
+		int value = std::stoi(currentInput);
+		
         // Reset colors before starting a new operation!
-        resetNodeColors(const_cast<Node*>(avl.rootCall()));
+		resetNodeColors(const_cast<Node*>(avl.rootCall()));
 
         if (op == OP_SLOT1) { // OP_INSERT
-            avl.insert(value);
-            
+			avl.insert(value);
+			
             // 1. Find the node we just inserted
-            const Node* newObj = avl.search(value);
-            if (newObj != nullptr) {
+			const Node* newObj = avl.search(value);
+			if (newObj != nullptr) {
                 // 2. Color it GREEN so it stands out!
-                const_cast<Node*>(newObj)->color = GREEN;
+				const_cast<Node*>(newObj)->color = GREEN;
                 
                 // 3. Start the animation timer for 1.5 seconds
-                currentTask = TASK_HIGHLIGHT_NEW;
-                animTimer = 1.5f; 
-            }
-        }
-        else if (op == OP_SLOT2) {
-            avl.delNode(value);
-        }
-        else if (op == OP_SLOT3) {
-            const Node* foundNode = avl.search(value);
-            if (foundNode != nullptr) {
+				currentTask = TASK_HIGHLIGHT_NEW;
+				animTimer = 1.5f; 
+			}
+			inputBuffers[1].clear();
+		}
+		else if (op == OP_SLOT2) {
+			avl.delNode(value);
+			inputBuffers[2].clear();
+		}
+		else if (op == OP_SLOT3) {
+			const Node* foundNode = avl.search(value);
+			if (foundNode != nullptr) {
                 // Instantly highlight the found node GREEN for now
-                const_cast<Node*>(foundNode)->color = GREEN; 
-            } else {
-                currentErrorSlot = (int)op - 1;
-                inputErrorMsg = "Value not found!";
-                inputErrorTimer = 2.5f;
-            }
-        }
+				const_cast<Node*>(foundNode)->color = GREEN; 
+				currentTask = TASK_HIGHLIGHT_NEW;
+				animTimer = 1.5f; 
+			} else {
+				currentErrorSlot = slotIndex;
+				inputErrorMsg = "Value not found!";
+				inputErrorTimer = 2.5f;
+			}
+			inputBuffers[3].clear();
+		}
 
         // Clear the text box on success
-        inputBuffer = "";
-        cursorIndex = 0;
-        textScrollX = 0.0f;
+        activeInputFocus = -1;
 
-    } catch (...) {
-        currentErrorSlot = (int)op - 1;
-        inputErrorMsg = "Invalid Number!";
-        inputErrorTimer = 2.5f;
-    }
+	} catch (...) {
+		currentErrorSlot = slotIndex;
+		inputErrorMsg = "Invalid Number!";
+		inputErrorTimer = 2.5f;
+	}
 }
 
 void AVLTreeState::resetNodeColors(Node* node) {
@@ -185,23 +201,34 @@ void AVLTreeState::updateNodePositions(Node* node, float deltaTime) {
 
 void AVLTreeState::drawNode(const Node* node) {
     if (node == nullptr) return;
-
+    float scaledRadius = 25.0f * zoomMultiplier;
+    float lineWidth = 3.0f * zoomMultiplier;
     if (node->left != nullptr) {
-        DrawLineEx(node->position, node->left->position, 3.0f, DARKGRAY);
+        DrawLineEx(node->position, node->left->position, lineWidth, DARKGRAY);
     }
     if (node->right != nullptr) {
-        DrawLineEx(node->position, node->right->position, 3.0f, DARKGRAY);
+        DrawLineEx(node->position, node->right->position, lineWidth, DARKGRAY);
     }
 
     drawNode(node->left);
     drawNode(node->right);
 
-    DrawCircleV(node->position, 20.0f, node->color);
-    DrawCircleLines(node->position.x, node->position.y, 20.0f, BLUE);
+    DrawCircleV(node->position, scaledRadius, node->color);
+    DrawCircleLines(node->position.x, node->position.y, scaledRadius, DARKBLUE);
 
     const char* text = TextFormat("%d", node->key);
-    int fontSize = 20;
-    int textWidth = MeasureText(text, fontSize);
+    float fontSize = 20.0f * zoomMultiplier;
+    Vector2 tSize = MeasureTextEx(numberFont, text, fontSize, 1.0f);
     
-    DrawText(text, node->position.x - (textWidth / 2.0f), node->position.y - (fontSize / 2.0f), fontSize, BLACK);
+    DrawTextEx(numberFont, text, { node->position.x - tSize.x / 2.0f, node->position.y - tSize.y / 2.0f }, fontSize, 1.0f, BLACK);
+}
+
+void AVLTreeState::updateTargetLayouts(Node* node, float x, float y, float hGap) {
+    if (node == nullptr) return;
+    node->targetPosition = { x, y };
+
+    // Recursively calculate positions for the left and right children
+    float verticalSpacing = 80.0f * zoomMultiplier;
+    updateTargetLayouts(node->left, x - hGap, y + verticalSpacing, hGap / 2.0f);
+    updateTargetLayouts(node->right, x + hGap, y + verticalSpacing, hGap / 2.0f);
 }
