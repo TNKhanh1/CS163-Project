@@ -72,6 +72,27 @@ int BinaryHeap::extractTop() {
     return topValue;
 }
 
+void BinaryHeap::updateValue(int index, int newValue) {
+    if (index < 0 || index >= (int)data.size()) {
+        throw std::out_of_range("Heap index out of range");
+    }
+
+    int oldValue = data[index];
+    data[index] = newValue;
+    if (newValue < oldValue) {
+        heapifyUp(index);
+    } else if (newValue > oldValue) {
+        heapifyDown(index);
+    }
+}
+
+void BinaryHeap::setValue(int index, int newValue) {
+    if (index < 0 || index >= (int)data.size()) {
+        throw std::out_of_range("Heap index out of range");
+    }
+    data[index] = newValue;
+}
+
 const std::vector<int>& BinaryHeap::getData() const {
     return data;
 }

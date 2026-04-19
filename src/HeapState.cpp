@@ -4,364 +4,656 @@
 #include <cmath>
 #include "raymath.h"
 
+// ---------------------------------------------------------
+// 1. CONSTRUCTOR & DESTRUCTOR
+// ---------------------------------------------------------
 HeapState::HeapState() : DataStructureState()
 {
-    NextState = (int)Heap; 
+    NextState = (int)STATE_HEAP;
+    
+    // Khởi tạo các biến Animation
+    currentTask = HEAP_TASK_NONE;
+    animCurrentIdx = -1;
+    animParentIdx = -1;
+    animTargetValue = -1;
+    animUpdateValue = -1;
+    updateHeapifyUp = false;
+    insertAnimPhase = 0;
+    activeCodeLine = -1;
+    previousZoomMultiplier = 1.0f;
 
-    controlTex.id = 0; 
+    // Khởi tạo các biến quản lý Input
+    activeInputFocus = -1;
+    previousInputFocus = -1;
+    isCreateUserDefOpen = false;
 
-    controlBtnPos = { 30.0f, 750.0f }; 
-    isDraggingControlBtn = false;
-    isClickingControlBtn = false;
-    isPanelOpen = false;
-    panelAnimProgress = 0.0f;
-    activeSubPanel = HEAP_SUB_NONE;
-    activeInput = HEAP_INP_NONE;
-    previousActiveInput = HEAP_INP_NONE;
-
-    cursorIndex = 0;
-    cursorBlinkTimer = 0.0f;
-    cursorVisible = true;
-    textScrollX = 0.0f;
+    // Gán mã giả mặc định khi chưa có thao tác nào
+    pseudoCode = {
+        "// Select an operation from",
+        "// the control panel to see",
+        "// the algorithm execution."
+    };
 }
 
 HeapState::~HeapState()
 {
     heap.clear();
-    if (controlTex.id != 0) UnloadTexture(controlTex); 
+    visualNodes.clear();
+    pseudoCode.clear();
 }
 
+// ---------------------------------------------------------
+// 2. LOAD ASSETS
+// ---------------------------------------------------------
 void HeapState::loadAssets()
 {
+    // Gọi hàm loadAssets của lớp cha để nạp Background, Font, Button dùng chung
     DataStructureState::loadAssets(); 
-    
-    if (controlTex.id != 0) {
-        UnloadTexture(controlTex);
-    }
-
-    Image ctrlImg = LoadImage("assets/control.png");
-    ImageResize(&ctrlImg, 75, 75); 
-    controlTex = LoadTextureFromImage(ctrlImg);
-    UnloadImage(ctrlImg);
 }
 
-bool HeapState::IsValidInputString(const std::string& str, HeapInput type)
-{
-    int currentDigitCount = 0;
-    for (size_t i = 0; i < str.length(); i++)
-    {
-        char c = str[i];
-        if (c == '-') {
-            if (i != 0) return false;
-        }
-        else if (c >= '0' && c <= '9') {
-            currentDigitCount++;
-            if (currentDigitCount > 4) return false; 
-        }
-        else {
-            return false; 
-        }
-    }
-    return true;
-}
-
-void HeapState::HandleTextInput(std::string& text, HeapInput type)
-{
-    if ((IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) && cursorIndex > 0) cursorIndex--;
-    if ((IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) && cursorIndex < (int)text.length()) cursorIndex++;
-
-    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_LEFT) || IsKeyPressedRepeat(KEY_RIGHT)) {
-        cursorVisible = true; cursorBlinkTimer = 0.0f;
-    }
-
-    if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
-        if (cursorIndex > 0) {
-            text.erase(cursorIndex - 1, 1);
-            cursorIndex--;
-            cursorVisible = true; cursorBlinkTimer = 0.0f;
-        }
-    }
-    if (IsKeyPressed(KEY_DELETE) || IsKeyPressedRepeat(KEY_DELETE)) {
-        if (cursorIndex < (int)text.length()) {
-            text.erase(cursorIndex, 1);
-            cursorVisible = true; cursorBlinkTimer = 0.0f;
-        }
-    }
-
-    int keyCode = GetKeyPressed();
-    while (keyCode > 0) 
-    {
-        char charToAdd = 0;
-
-        if (keyCode >= KEY_ZERO && keyCode <= KEY_NINE) charToAdd = '0' + (keyCode - KEY_ZERO);
-        else if (keyCode >= KEY_KP_0 && keyCode <= KEY_KP_9) charToAdd = '0' + (keyCode - KEY_KP_0);
-        else if (keyCode == KEY_MINUS || keyCode == KEY_KP_SUBTRACT) charToAdd = '-';
-        
-        if (charToAdd != 0) {
-            std::string temp = text;
-            temp.insert(cursorIndex, 1, charToAdd);
-
-            if (IsValidInputString(temp, type)) {
-                text = temp;
-                cursorIndex++;
-                cursorVisible = true; cursorBlinkTimer = 0.0f;
-            }
-        }
-        keyCode = GetKeyPressed();
-    }
-    while (GetCharPressed() > 0) {} 
-}
-
+// ---------------------------------------------------------
+// 3. UPDATE (XỬ LÝ LOGIC THEO THỜI GIAN THỰC)
+// ---------------------------------------------------------
 void HeapState::update(float deltaTime)
 {
     Vector2 mousePos = GetMousePosition();
     
+    // 3.1. Cập nhật các UI dùng chung (Slider tốc độ, Slider zoom, Bắt sự kiện Animation)
     DataStructureState::updateSharedUI(deltaTime, mousePos);
+    DataStructureState::updateControlPanel(deltaTime, mousePos);
 
-    Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
-    
-    if (CheckCollisionPointRec(mousePos, controlBtnBounds) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        isDraggingControlBtn = true;
-        isClickingControlBtn = true; 
-        dragOffset = { mousePos.x - controlBtnPos.x, mousePos.y - controlBtnPos.y };
+    // 3.2. Cập nhật lại tọa độ đích nếu người dùng kéo Slider Zoom
+    if (zoomMultiplier != previousZoomMultiplier) {
+        updateTargetPositions();
+        previousZoomMultiplier = zoomMultiplier;
     }
 
-    if (isDraggingControlBtn) {
-        if (isClickingControlBtn && Vector2Distance(mousePos, {controlBtnPos.x + dragOffset.x, controlBtnPos.y + dragOffset.y}) > 3.0f) {
-            isClickingControlBtn = false; 
-        }
-        controlBtnPos.x = mousePos.x - dragOffset.x;
-        controlBtnPos.y = mousePos.y - dragOffset.y;
-    }
-
-    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        if (isDraggingControlBtn) {
-            isDraggingControlBtn = false; 
-            if (isClickingControlBtn && CheckCollisionPointRec(mousePos, controlBtnBounds)) {
-                isPanelOpen = !isPanelOpen; 
-            }
-        }
-        isClickingControlBtn = false; 
-    }
-
-    float animSpeed = 4.0f; 
-    if (isPanelOpen) {
-        panelAnimProgress += deltaTime * animSpeed;
-        if (panelAnimProgress > 1.0f) panelAnimProgress = 1.0f;
-    } else {
-        panelAnimProgress -= deltaTime * animSpeed;
-        if (panelAnimProgress < 0.0f) {
-            panelAnimProgress = 0.0f; activeSubPanel = HEAP_SUB_NONE; 
-            activeInput = HEAP_INP_NONE; 
-        }
-    }
-
-    if (activeInput != previousActiveInput) {
-        if (activeInput == HEAP_INP_INSERT_VAL) cursorIndex = inputInsertVal.length();
-        
+    // 3.3. Xử lý Logic nhấp nháy con trỏ và Focus vào TextBox
+    if (activeInputFocus != previousInputFocus) {
+        cursorIndex = (activeInputFocus == -1) ? 0 : inputBuffers[activeInputFocus].length();
         textScrollX = 0.0f; 
         cursorBlinkTimer = 0.0f;
         cursorVisible = true;
-        previousActiveInput = activeInput;
+        previousInputFocus = activeInputFocus;
     }
 
-    if (activeInput != HEAP_INP_NONE) {
-        cursorBlinkTimer += deltaTime;
-        if (cursorBlinkTimer >= 0.5f) { 
-            cursorVisible = !cursorVisible;
-            cursorBlinkTimer = 0.0f;
-        }
+    if (activeInputFocus != -1) {
+        // Gửi cờ 'true' nếu đang ở ô Create (để cho phép nhập dấu phẩy ',')
+        HandleTextInput(inputBuffers[activeInputFocus], (activeInputFocus == 0));
+    }
 
-        if (activeInput == HEAP_INP_INSERT_VAL) HandleTextInput(inputInsertVal, activeInput);
-        
-        if (IsKeyPressed(KEY_ENTER)) {
-            try {
-                if (activeInput == HEAP_INP_INSERT_VAL && !inputInsertVal.empty()) {
-                    heap.insert(std::stoi(inputInsertVal));
-                    inputInsertVal.clear();
+    // 3.4. Cập nhật hiệu ứng di chuyển (Lerp) cho toàn bộ Node trên màn hình
+    for (size_t i = 0; i < visualNodes.size(); i++) 
+    {
+        visualNodes[i].position = Vector2Lerp(
+            visualNodes[i].position, 
+            visualNodes[i].targetPosition, 
+            deltaTime * 8.0f // Có thể nhân thêm animSpeedMultiplier nếu muốn nhanh hơn
+        );
+    }
+}
+
+// ---------------------------------------------------------
+// 4. MENU GIAO DIỆN (SUB-MENU)
+// ---------------------------------------------------------
+void HeapState::DrawSubMenuContent()
+{
+    float mainHeight = 45.0f;
+    float gap = 8.0f;
+    float subX = controlBtnPos.x + (float)controlTex.width + 15.0f + 125.0f + gap;
+    float startY = controlBtnPos.y;
+
+    switch (activeMainOp) 
+    {
+        case OP_SLOT1: // CREATE
+            if (DrawButtonText({subX, startY}, "Empty", 90, mainHeight, false)) {
+                heap.clear();
+                syncVisualNodes();
+            }
+            if (DrawButtonText({subX + 98, startY}, "User Defined", 160, mainHeight, isCreateUserDefOpen)) {
+                isCreateUserDefOpen = !isCreateUserDefOpen;
+            }
+            if (DrawButtonText({subX + 266, startY}, "Random", 110, mainHeight, false)) {
+                heap.clear();
+                std::vector<int> randData;
+                int numNodes = GetRandomValue(5, 15);
+                for(int i = 0; i < numNodes; i++) randData.push_back(GetRandomValue(1, 99));
+                heap.buildHeap(randData);
+                syncVisualNodes();
+            }
+            if (isCreateUserDefOpen) {
+                if (DrawTextBox({subX + 98, startY + mainHeight + gap}, inputBuffers[0], activeInputFocus == 0, 230, mainHeight, cursorIndex, textScrollX, cursorVisible)) {
+                    activeInputFocus = 0;
                 }
-            } catch (...) {}
-            activeInput = HEAP_INP_NONE;
+                if (DrawButtonText({subX + 336, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
+                    onExecuteOp(OP_SLOT1);
+                }
+            }
+            break;
+
+        case OP_SLOT2: // INSERT
+            DrawLabel({subX, startY + mainHeight + gap}, "Value=");
+            if (DrawTextBox({subX + 80, startY + mainHeight + gap}, inputBuffers[1], activeInputFocus == 1, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) {
+                activeInputFocus = 1;
+            }
+            if (DrawButtonText({subX + 190, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
+                onExecuteOp(OP_SLOT2);
+            }
+            break;
+
+        case OP_SLOT3: // SEARCH
+            DrawLabel({subX, startY + 2 * (mainHeight + gap)}, "Value=");
+            if (DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffers[2], activeInputFocus == 2, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) {
+                activeInputFocus = 2;
+            }
+            if (DrawButtonText({subX + 190, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
+                onExecuteOp(OP_SLOT3);
+            }
+            break;
+
+        case OP_SLOT4: // UPDATE
+            DrawLabel({subX, startY + 3 * (mainHeight + gap)}, "Idx=");
+            if (DrawTextBox({subX + 50, startY + 3 * (mainHeight + gap)}, inputBuffers[3], activeInputFocus == 3, 60, mainHeight, cursorIndex, textScrollX, cursorVisible)) {
+                activeInputFocus = 3;
+            }
+            DrawLabel({subX + 120, startY + 3 * (mainHeight + gap)}, "Val=");
+            if (DrawTextBox({subX + 170, startY + 3 * (mainHeight + gap)}, inputBuffers[4], activeInputFocus == 4, 60, mainHeight, cursorIndex, textScrollX, cursorVisible)) {
+                activeInputFocus = 4;
+            }
+            if (DrawButtonText({subX + 240, startY + 3 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
+                onExecuteOp(OP_SLOT4);
+            }
+            break;
+
+        case OP_SLOT5: // DELETE (EXTRACT MIN/MAX)
+            if (DrawButtonText({subX, startY + 4 * (mainHeight + gap)}, "Extract Root", 150, mainHeight, false)) {
+                onExecuteOp(OP_SLOT5);
+            }
+            break;
+
+        default: 
+            break;
+    }
+}
+
+void HeapState::onExecuteOp(MainOp op)
+{
+    try {
+        switch (op) {
+            case OP_SLOT1: // Create
+                if (!inputBuffers[0].empty()) {
+                    heap.clear();
+                    std::vector<int> vals;
+                    std::string temp = "";
+                    for (char c : inputBuffers[0]) {
+                        if (c == ',') {
+                            if (!temp.empty()) { vals.push_back(std::stoi(temp)); temp = ""; }
+                        } else temp += c;
+                    }
+                    if (!temp.empty()) vals.push_back(std::stoi(temp));
+                    
+                    heap.buildHeap(vals);
+                    syncVisualNodes();
+                    inputBuffers[0].clear();
+                    isCreateUserDefOpen = false;
+                }
+                break;
+
+            case OP_SLOT2: // Insert
+                if (!inputBuffers[1].empty()) {
+                    int val = std::stoi(inputBuffers[1]);
+                    startAnimation(HEAP_TASK_INSERT, val);
+                    inputBuffers[1].clear();
+                }
+                break;
+
+            case OP_SLOT3: // Search
+                if (!inputBuffers[2].empty()) {
+                    int val = std::stoi(inputBuffers[2]);
+                    startAnimation(HEAP_TASK_SEARCH, val);
+                    inputBuffers[2].clear();
+                }
+                break;
+
+            case OP_SLOT4: // Update
+                if (!inputBuffers[3].empty() && !inputBuffers[4].empty()) {
+                    int targetIdx = std::stoi(inputBuffers[3]);
+                    int newVal = std::stoi(inputBuffers[4]);
+                    
+                    if (targetIdx >= 0 && targetIdx < (int)visualNodes.size()) {
+                        startAnimation(HEAP_TASK_UPDATE, targetIdx, newVal);
+                    } else {
+                        inputErrorMsg = "Index out of bounds!";
+                        inputErrorTimer = 2.5f;
+                        currentErrorSlot = 4;
+                    }
+                    inputBuffers[3].clear();
+                    inputBuffers[4].clear();
+                }
+                break;
+
+            case OP_SLOT5: // Extract
+                if (!heap.isEmpty()) {
+                    startAnimation(HEAP_TASK_EXTRACT, 0);
+                } else {
+                    inputErrorMsg = "Heap is empty!";
+                    inputErrorTimer = 2.5f;
+                    currentErrorSlot = 5;
+                }
+                break;
+
+            default: 
+                break;
+        }
+    } catch (...) {
+        inputErrorMsg = "Invalid Input!";
+        inputErrorTimer = 2.0f;
+    }
+    activeInputFocus = -1;
+}
+
+// ---------------------------------------------------------
+// 5. LOGIC ANIMATION & STEP-BY-STEP
+// ---------------------------------------------------------
+void HeapState::startAnimation(HeapTask task, int val1, int val2)
+{
+    syncVisualNodes();
+    currentTask = task;
+    animCurrentIdx = 0;
+    animParentIdx = -1;
+    animTargetValue = val1;
+    animUpdateValue = val2;
+    isAnimating = true;
+    animTimer = 0.0f;
+
+    // Khởi tạo mã giả (Pseudo-code) cho từng chức năng
+    if (task == HEAP_TASK_SEARCH) {
+        pseudoCode = {
+            "int search(int val) {",
+            "    for (int i = 0; i < size; i++) {",
+            "        if (data[i] == val)",
+            "            return i;",
+            "    }",
+            "    return -1;",
+            "}"
+        };
+    } 
+    else if (task == HEAP_TASK_INSERT) {
+        pseudoCode = {
+            "void insert(int val) {",
+            "    data.push_back(val);",
+            "    int i = size - 1;",
+            "    while (i > 0 && data[parent(i)] > data[i]) {",
+            "        swap(data[parent(i)], data[i]);",
+            "        i = parent(i);",
+            "    }",
+            "}"
+        };
+        insertAnimPhase = 0;
+        // Thêm node mới vào cuối mảng trực quan trước khi bắt đầu step-by-step
+        heap.insert(val1); // Thêm vào dữ liệu gốc
+        
+        HeapNodeVisual newNode;
+        newNode.value = val1;
+        newNode.color = SKYBLUE;
+        newNode.position = { 1800.0f / 2.0f, 150.0f }; // Rơi từ đỉnh xuống
+        visualNodes.push_back(newNode);
+        
+        updateTargetPositions();
+        animCurrentIdx = visualNodes.size() - 1; // Bắt đầu duyệt từ node cuối
+    }
+    else if (task == HEAP_TASK_EXTRACT) {
+        pseudoCode = {
+            "int extract() {",
+            "    int root = data[0];",
+            "    data[0] = data.back();",
+            "    data.pop_back();",
+            "    heapifyDown(0);",
+            "    return root;",
+            "}"
+        };
+        animCurrentIdx = 0; // Sẽ xử lý trong handleAnimationStep
+    }
+    else if (task == HEAP_TASK_UPDATE) {
+        const auto& data = heap.getData();
+        if (val1 < 0 || val1 >= (int)data.size()) {
+            currentTask = HEAP_TASK_NONE;
+            isAnimating = false;
+            return;
+        }
+        int oldValue = data[val1];
+        updateHeapifyUp = (val2 < oldValue);
+
+        pseudoCode = {
+            "void update(int idx, int val) {",
+            "    data[idx] = val;",
+            updateHeapifyUp ? "    while (idx > 0 && data[parent(idx)] > data[idx]) {" : "    while (hasSmallerChild(idx)) {",
+            updateHeapifyUp ? "        swap(data[parent(idx)], data[idx]);" : "        swap(data[idx], data[smallestChild(idx)]);",
+            updateHeapifyUp ? "        idx = parent(idx);" : "        idx = smallestChild(idx);",
+            "    }",
+            "}"
+        };
+
+        heap.setValue(val1, val2);
+        animCurrentIdx = val1; // Lưu index cần update
+        syncVisualNodes();
+    }
+}
+
+void HeapState::handleAnimationStep()
+{
+    // Tìm kiếm: Duyệt qua toàn bộ mảng
+    if (currentTask == HEAP_TASK_SEARCH) {
+        resetNodeColors();
+        activeCodeLine = 1; // for loop
+
+        if (animCurrentIdx < (int)visualNodes.size()) {
+            visualNodes[animCurrentIdx].color = YELLOW;
+            
+            if (visualNodes[animCurrentIdx].value == animTargetValue) {
+                visualNodes[animCurrentIdx].color = ORANGE;
+                activeCodeLine = 3; // return i
+                isAnimating = false;
+                currentTask = HEAP_TASK_NONE;
+            } else {
+                animCurrentIdx++;
+            }
+        } else {
+            activeCodeLine = 5; // return -1
+            inputErrorMsg = "Value not found!";
+            inputErrorTimer = 2.5f;
+            currentErrorSlot = 2;
+            isAnimating = false;
+            currentTask = HEAP_TASK_NONE;
+        }
+    }
+    // Thêm (Insert): Heapify Up từ dưới lên
+    else if (currentTask == HEAP_TASK_INSERT) {
+        resetNodeColors();
+        
+        if (animCurrentIdx > 0) {
+            animParentIdx = (animCurrentIdx - 1) / 2;
+            visualNodes[animCurrentIdx].color = YELLOW;
+            visualNodes[animParentIdx].color = YELLOW;
+
+            if (insertAnimPhase == 0) {
+                activeCodeLine = 3; // while condition
+                if (visualNodes[animCurrentIdx].value < visualNodes[animParentIdx].value) {
+                    insertAnimPhase = 1;
+                } else {
+                    // Đã đúng vị trí
+                    activeCodeLine = -1;
+                    isAnimating = false;
+                    currentTask = HEAP_TASK_NONE;
+                    syncVisualNodes(); // Đồng bộ lại 1 lần cuối cho chắc chắn
+                }
+            } else if (insertAnimPhase == 1) {
+                activeCodeLine = 4; // swap
+                visualNodes[animCurrentIdx].color = GREEN;
+                visualNodes[animParentIdx].color = GREEN;
+                std::swap(visualNodes[animCurrentIdx].value, visualNodes[animParentIdx].value);
+                insertAnimPhase = 2;
+            } else if (insertAnimPhase == 2) {
+                activeCodeLine = 5; // i = parent
+                animCurrentIdx = animParentIdx; // Tiếp tục đi lên
+                insertAnimPhase = 0;
+            }
+        } else {
+            activeCodeLine = -1;
+            isAnimating = false;
+            currentTask = HEAP_TASK_NONE;
+            syncVisualNodes();
+        }
+    }
+    // Xóa (Extract) và Update: Xử lý tức thì sau đó đồng bộ (Có thể mở rộng logic chi tiết nếu cần)
+    else if (currentTask == HEAP_TASK_EXTRACT) {
+        activeCodeLine = 4; // heapifyDown
+        heap.extractTop();
+        syncVisualNodes();
+        isAnimating = false;
+        currentTask = HEAP_TASK_NONE;
+    }
+    else if (currentTask == HEAP_TASK_UPDATE) {
+        resetNodeColors();
+        activeCodeLine = 3; // while condition
+
+        const auto& data = heap.getData();
+        if (animCurrentIdx < 0 || animCurrentIdx >= heap.getSize()) {
+            activeCodeLine = -1;
+            isAnimating = false;
+            currentTask = HEAP_TASK_NONE;
+            return;
+        }
+
+        visualNodes[animCurrentIdx].color = YELLOW;
+
+        if (updateHeapifyUp) {
+            if (animCurrentIdx > 0) {
+                animParentIdx = (animCurrentIdx - 1) / 2;
+                visualNodes[animParentIdx].color = YELLOW;
+                activeCodeLine = 4; // swap
+
+                if (data[animCurrentIdx] < data[animParentIdx]) {
+                    visualNodes[animCurrentIdx].color = GREEN;
+                    visualNodes[animParentIdx].color = GREEN;
+                    int currentValue = data[animCurrentIdx];
+                    int parentValue = data[animParentIdx];
+                    heap.setValue(animCurrentIdx, parentValue);
+                    heap.setValue(animParentIdx, currentValue);
+                    syncVisualNodes();
+                    animCurrentIdx = animParentIdx;
+                } else {
+                    activeCodeLine = -1;
+                    isAnimating = false;
+                    currentTask = HEAP_TASK_NONE;
+                }
+            } else {
+                activeCodeLine = -1;
+                isAnimating = false;
+                currentTask = HEAP_TASK_NONE;
+            }
+        } else {
+            int size = heap.getSize();
+            int leftIdx = animCurrentIdx * 2 + 1;
+            int rightIdx = animCurrentIdx * 2 + 2;
+            int smallest = animCurrentIdx;
+
+            if (leftIdx < size && data[leftIdx] < data[smallest]) smallest = leftIdx;
+            if (rightIdx < size && data[rightIdx] < data[smallest]) smallest = rightIdx;
+
+            if (smallest != animCurrentIdx) {
+                visualNodes[smallest].color = YELLOW;
+                activeCodeLine = 4; // swap
+                visualNodes[animCurrentIdx].color = GREEN;
+                visualNodes[smallest].color = GREEN;
+                int currentValue = data[animCurrentIdx];
+                int smallestValue = data[smallest];
+                heap.setValue(animCurrentIdx, smallestValue);
+                heap.setValue(smallest, currentValue);
+                syncVisualNodes();
+                animCurrentIdx = smallest;
+            } else {
+                activeCodeLine = -1;
+                isAnimating = false;
+                currentTask = HEAP_TASK_NONE;
+            }
         }
     }
 }
 
-bool HeapState::DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected)
+// ---------------------------------------------------------
+// 6. ĐỒNG BỘ DỮ LIỆU & TÍNH TOÁN TỌA ĐỘ
+// ---------------------------------------------------------
+void HeapState::syncVisualNodes()
 {
-    Rectangle bounds = {pos.x, pos.y, width, height};
-    bool isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
+    const auto& data = heap.getData();
     
-    Color bgColor = (isHovered || isSelected) ? BLACK : Color{ 102, 191, 255, 255 }; 
-    DrawRectangleRec(bounds, bgColor);
-
-    float fontSize = 22.0f;
-    Vector2 textSize = MeasureTextEx(listFont, text, fontSize, 1.0f);
-    Vector2 textPos = { pos.x + (width - textSize.x) / 2.0f, pos.y + (height - textSize.y) / 2.0f };
-    DrawTextEx(listFont, text, textPos, fontSize, 1.0f, WHITE);
-    
-    return (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON));
-}
-
-bool HeapState::DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height)
-{
-    Rectangle bounds = { pos.x, pos.y, width, height };
-    bool isHovered = CheckCollisionPointRec(GetMousePosition(), bounds);
-
-    DrawRectangleRec(bounds, BLACK); 
-    DrawRectangleLinesEx(bounds, 2.0f, isActive ? RED : DARKGRAY); 
-
-    float fontSize = 22.0f; 
-    float padding = 8.0f;
-    float textHeight = MeasureTextEx(numberFont, "0", fontSize, 1.0f).y; 
-    float textDrawY = pos.y + (height - textHeight) / 2.0f; 
-    
-    if (isActive) {
-        std::string textBeforeCursor = text.substr(0, cursorIndex);
-        float cursorOffsetX = MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
-        float maxVisibleWidth = width - (padding * 2);
-
-        if (cursorOffsetX - textScrollX > maxVisibleWidth) {
-            textScrollX = cursorOffsetX - maxVisibleWidth;
-        } 
-        else if (cursorOffsetX - textScrollX < 0) {
-            textScrollX = cursorOffsetX;
+    while (visualNodes.size() < data.size()) {
+        HeapNodeVisual newNode;
+        newNode.value = 0;
+        newNode.color = SKYBLUE;
+        if (visualNodes.empty()) {
+            newNode.position = { 1800.0f / 2.0f, 150.0f };
+        } else {
+            int pIdx = (visualNodes.size() - 1) / 2;
+            newNode.position = visualNodes[pIdx].position;
         }
-    } else {
-        textScrollX = 0; 
+        visualNodes.push_back(newNode);
     }
-
-    BeginScissorMode((int)pos.x, (int)pos.y, (int)width, (int)height);
     
-    Vector2 textPos = { pos.x + padding - textScrollX, textDrawY };
-    DrawTextEx(numberFont, text.c_str(), textPos, fontSize, 1.0f, WHITE);
-
-    if (isActive && cursorVisible) {
-        std::string textBeforeCursor = text.substr(0, cursorIndex);
-        float cursorX = pos.x + padding - textScrollX + MeasureTextEx(numberFont, textBeforeCursor.c_str(), fontSize, 1.0f).x;
-        DrawLineEx({cursorX, textDrawY}, {cursorX, textDrawY + textHeight}, 2.0f, WHITE);
+    while (visualNodes.size() > data.size()) {
+        visualNodes.pop_back();
     }
-
-    EndScissorMode();
-
-    float startX = controlBtnPos.x + controlTex.width + 15.0f;
-    BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-
-    if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) return true; 
-    return false;
+    
+    for (size_t i = 0; i < data.size(); i++) {
+        visualNodes[i].value = data[i];
+    }
+    
+    updateTargetPositions();
 }
 
-void HeapState::DrawLabel(Vector2 pos, const char* text)
+void HeapState::updateTargetPositions()
 {
-    float fontSize = 22.0f;
-    DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
+    if (visualNodes.empty()) return;
+
+    // Tọa độ Cây Nhị Phân
+    float rootX = 1800.0f / 2.0f - 150.0f; // Dịch sang trái nhường chỗ cho Code Panel
+    float rootY = 150.0f;
+    float baseSpacingX = 250.0f * zoomMultiplier; 
+    float levelHeight = 100.0f * zoomMultiplier;
+
+    visualNodes[0].targetPosition = {rootX, rootY};
+
+    for (size_t i = 0; i < visualNodes.size(); i++) {
+        int leftChild = 2 * i + 1;
+        int rightChild = 2 * i + 2;
+        
+        int depth = (int)log2(i + 1);
+        float currentSpacingX = baseSpacingX / pow(2.0f, depth); 
+
+        if (leftChild < (int)visualNodes.size()) {
+            visualNodes[leftChild].targetPosition = {
+                visualNodes[i].targetPosition.x - currentSpacingX, 
+                visualNodes[i].targetPosition.y + levelHeight
+            };
+        }
+        if (rightChild < (int)visualNodes.size()) {
+            visualNodes[rightChild].targetPosition = {
+                visualNodes[i].targetPosition.x + currentSpacingX, 
+                visualNodes[i].targetPosition.y + levelHeight
+            };
+        }
+    }
 }
 
+void HeapState::resetNodeColors()
+{
+    for (auto& node : visualNodes) {
+        node.color = SKYBLUE;
+    }
+}
+
+// ---------------------------------------------------------
+// 7. VẼ GIAO DIỆN LÊN MÀN HÌNH (DRAWING)
+// ---------------------------------------------------------
 void HeapState::draw()
 {
+    // Vẽ nền, nút Home, và các thanh trượt
     DataStructureState::drawSharedUI();
 
     const char* titleText = "HEAP VISUALIZATION";
     DrawTextEx(listFont, titleText, { (1800.0f - MeasureTextEx(listFont, titleText, 55, 6.5f).x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
-    // TODO: Draw Heap Tree Here (Chưa vẽ cây theo yêu cầu)
+    drawBinaryTree();
+    drawHorizontalArray();
 
-    Vector2 mousePos = GetMousePosition();
-    Rectangle controlBtnBounds = { controlBtnPos.x, controlBtnPos.y, (float)controlTex.width, (float)controlTex.height };
+    // Vẽ Khung hiển thị Mã giả (Pseudo-code)
+    float pcX = 1315.0f, pcY = 150.0f;
+    float pcWidth = 450.0f, pcHeight = 450.0f;
+    DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
+    DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
+    DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
     
-    Color controlColor = CheckCollisionPointRec(mousePos, controlBtnBounds) ? Fade(WHITE, 0.7f) : WHITE;
-    DrawTextureV(controlTex, controlBtnPos, controlColor);
-    
-    if (panelAnimProgress > 0.0f) 
-    {
-        float easedProgress = sin(panelAnimProgress * PI / 2.0f); 
+    float lineHeight = 28.0f;
+    float textPadding = 15.0f;
+    for (int i = 0; i < (int)pseudoCode.size(); i++) {
+        Color textCol = BLACK;
+        if (i == activeCodeLine) {
+            DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
+            textCol = RED;
+        }
+        // Wrap text only if still too long after shrinking font
+        std::string line = pseudoCode[i];
+        if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
+            size_t spacePos = line.find_last_of(' ', 60);
+            if (spacePos != std::string::npos) {
+                std::string first = line.substr(0, spacePos);
+                std::string second = line.substr(spacePos + 1);
+                DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+                DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
+            } else {
+                DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+            }
+        } else {
+            DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+        }
+    }
 
-        float mainItemWidth = 125.0f; 
-        float mainItemHeight = 45.0f;
-        float gap = 8.0f; 
+    // Vẽ Menu tùy chỉnh
+    DrawTextureV(controlTex, controlBtnPos, WHITE);
+    DrawSideMenuFrame({"Create", "Insert", "Search", "Update", "Delete"});
+}
 
-        float startX = controlBtnPos.x + controlTex.width + 15.0f;
-        float startY = controlBtnPos.y; 
+void HeapState::drawBinaryTree()
+{
+    float currentRadius = 35.0f * zoomMultiplier;
+
+    // Vẽ các đường nối giữa Cha và Con
+    for (size_t i = 1; i < visualNodes.size(); i++) {
+        int parentIdx = (i - 1) / 2;
+        DrawLineEx(visualNodes[parentIdx].position, visualNodes[i].position, 3.0f * zoomMultiplier, DARKGRAY);
+    }
+
+    // Vẽ Vòng tròn và Số liệu bên trong
+    for (size_t i = 0; i < visualNodes.size(); i++) {
+        DrawCircleV(visualNodes[i].position, currentRadius, visualNodes[i].color);
+        DrawCircleLines(visualNodes[i].position.x, visualNodes[i].position.y, currentRadius, DARKBLUE);
         
-        BeginScissorMode((int)startX, 0, GetScreenWidth(), GetScreenHeight());
-        float panelX = startX - mainItemWidth * (1.0f - easedProgress);
-
-        const char* mainItems[] = {"Create", "Insert", "Delete"};
-        HeapSubPanel itemSubPanels[] = {HEAP_SUB_CREATE, HEAP_SUB_INSERT, HEAP_SUB_DELETE};
-
-        for (int i = 0; i < 3; i++) {
-            float itemY = startY + i * (mainItemHeight + gap);
-            bool isSelected = (activeSubPanel == itemSubPanels[i]);
-
-            bool isClicked = DrawButtonText({panelX, itemY}, mainItems[i], mainItemWidth, mainItemHeight, isSelected);
-
-            if (isClicked && panelAnimProgress >= 1.0f) {
-                if (activeSubPanel == itemSubPanels[i]) activeSubPanel = HEAP_SUB_NONE; 
-                else { activeSubPanel = itemSubPanels[i]; }
-            }
-        }
-
-        if (activeSubPanel != HEAP_SUB_NONE) 
-        {
-            float subX = panelX + mainItemWidth + gap; 
-            float labelFontSize = 22.0f; 
-
-            if (activeSubPanel == HEAP_SUB_CREATE) {
-                float sy = startY + 0 * (mainItemHeight + gap); 
-                float cx = subX;
-
-                if (DrawButtonText({cx, sy}, "Empty", 90, mainItemHeight)) { 
-                    heap.clear();
-                }
-                cx += 90 + gap;
-
-                if (DrawButtonText({cx, sy}, "Random", 110, mainItemHeight)) { 
-                    heap.clear();
-                    int NumNode = GetRandomValue(1, 15);
-                    std::vector<int> randomData;
-                    for(int i = 0; i < NumNode; i++) randomData.push_back(GetRandomValue(1, 99));
-                    heap.buildHeap(randomData);
-                }
-            }
-            else if (activeSubPanel == HEAP_SUB_INSERT) {
-                float sy = startY + 1 * (mainItemHeight + gap); 
-                float cx = subX;
-
-                DrawLabel({cx, sy}, "Value =");
-                cx += MeasureTextEx(listFont, "Value =", labelFontSize, 1.0f).x + gap;
-
-                if (DrawTextBox({cx, sy}, inputInsertVal, activeInput == HEAP_INP_INSERT_VAL, 100, mainItemHeight)) activeInput = HEAP_INP_INSERT_VAL;
-                cx += 100 + gap;
-
-                if (DrawButtonText({cx, sy}, "GO", 50, mainItemHeight)) {
-                    if (!inputInsertVal.empty()) {
-                        try { heap.insert(std::stoi(inputInsertVal)); inputInsertVal.clear(); activeInput = HEAP_INP_NONE; } catch (...) {}
-                    }
-                }
-            }
-            else if (activeSubPanel == HEAP_SUB_DELETE) {
-                float sy = startY + 2 * (mainItemHeight + gap);
-                float cx = subX;
-
-                if (DrawButtonText({cx, sy}, "POP", 90, mainItemHeight)) {
-                    if (!heap.isEmpty()) {
-                        try { heap.extractTop(); } catch (...) {} 
-                    }
-                }
-            }
-        }
-
-        if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f) {
-            DrawTextEx(numberFont, inputErrorMsg.c_str(), { panelX + mainItemWidth + gap + 90.0f, startY + 200.0f }, 18.0f, 1.0f, RED);
-        }
-
-        EndScissorMode();    
+        float scaledFontSize = 25.0f * zoomMultiplier;
+        const char* valText = TextFormat("%d", visualNodes[i].value);
+        Vector2 tSize = MeasureTextEx(numberFont, valText, scaledFontSize, 1.0f);
+        DrawTextEx(numberFont, valText, { visualNodes[i].position.x - tSize.x / 2.0f, visualNodes[i].position.y - tSize.y / 2.0f }, scaledFontSize, 1.0f, WHITE);
     }
 }
 
-void HeapState::DrawSubMenuContent() {
-    // TODO: Implement heap submenu drawing
-}
+void HeapState::drawHorizontalArray()
+{
+    if (visualNodes.empty()) return;
 
-void HeapState::onExecuteOp(MainOp op) {
-    // TODO: Implement heap operation execution
+    float arrayStartX = 100.0f;
+    float arrayStartY = 880.0f;
+    float nodeSize = 60.0f * zoomMultiplier;
+    float gap = 10.0f * zoomMultiplier;
+
+    DrawTextEx(listFont, "Array Representation:", { arrayStartX, arrayStartY - 40.0f }, 25.0f * zoomMultiplier, 1.0f, DARKGRAY);
+
+    for (size_t i = 0; i < visualNodes.size(); i++) {
+        float x = arrayStartX + i * (nodeSize + gap);
+        float y = arrayStartY;
+        Rectangle rect = { x, y, nodeSize, nodeSize };
+
+        DrawRectangleRec(rect, visualNodes[i].color);
+        DrawRectangleLinesEx(rect, 2.0f, BLACK);
+
+        // Hiển thị giá trị (Value)
+        float fontSize = 22.0f * zoomMultiplier;
+        const char* valText = TextFormat("%d", visualNodes[i].value);
+        Vector2 tSize = MeasureTextEx(numberFont, valText, fontSize, 1.0f);
+        DrawTextEx(numberFont, valText, { rect.x + (nodeSize - tSize.x) / 2.0f, rect.y + (nodeSize - tSize.y) / 2.0f }, fontSize, 1.0f, BLACK);
+
+        // Hiển thị chỉ mục (Index)
+        const char* idxText = TextFormat("[%d]", i);
+        Vector2 idxSize = MeasureTextEx(numberFont, idxText, 18.0f * zoomMultiplier, 1.0f);
+        DrawTextEx(numberFont, idxText, { rect.x + (nodeSize - idxSize.x) / 2.0f, rect.y + nodeSize + 5.0f }, 18.0f * zoomMultiplier, 1.0f, DARKGRAY);
+    }
 }

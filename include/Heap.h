@@ -20,6 +20,8 @@ public:
     void clear();
     void insert(int value);
     int extractTop(); // Dùng hàm O(log N) thay vì search & remove
+    void updateValue(int index, int newValue);
+    void setValue(int index, int newValue);
     
     const std::vector<int>& getData() const;
     int getSize() const;

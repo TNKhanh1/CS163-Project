@@ -18,7 +18,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 	isCreateUserDefOpen = false;
 
 	searchPointer = nullptr;
-	currentTask = TASK_NONE;
+	currentTask = LL_TASK_NONE;
 	previousZoomMultiplier = 1.0f;
 }
 
@@ -118,7 +118,7 @@ void LinkedListState::onExecuteOp(MainOp op)
 
 void LinkedListState::handleAnimationStep()
 {
-	if (currentTask == TASK_SEARCH && searchPointer) {
+	if (currentTask == LL_TASK_SEARCH && searchPointer) {
 		if (searchPointer->value == searchTargetValue) {
 			searchPointer->color = ORANGE; 
 			isAnimating = false;
@@ -134,14 +134,14 @@ void LinkedListState::handleAnimationStep()
 			}
 		}
 	} 
-	else if (currentTask == TASK_DELETE_INDEX || currentTask == TASK_INSERT_INDEX) {
+	else if (currentTask == LL_TASK_DELETE_INDEX || currentTask == LL_TASK_INSERT_INDEX) {
 		if (searchCurrentIndex < searchTargetIndex - 1 && searchPointer && searchPointer->next) {
 			searchPointer->color = LIGHTGRAY;
 			searchPointer = searchPointer->next;
 			if (searchPointer) searchPointer->color = YELLOW;
 			searchCurrentIndex++;
 		} else {
-			if (currentTask == TASK_DELETE_INDEX) {
+			if (currentTask == LL_TASK_DELETE_INDEX) {
 				if (searchCurrentIndex == searchTargetIndex - 1 && searchPointer && searchPointer->next) {
 					LLNode* toDelete = searchPointer->next;
 					searchPointer->next = toDelete->next;
@@ -152,7 +152,7 @@ void LinkedListState::handleAnimationStep()
 					inputErrorTimer = 2.5f;
 				}
 			} 
-			else if (currentTask == TASK_INSERT_INDEX) {
+			else if (currentTask == LL_TASK_INSERT_INDEX) {
 				if (searchCurrentIndex == searchTargetIndex - 1 && searchPointer) {
 					LLNode* newNode = new LLNode{searchTargetValue, {startX, startY - 200}, {0,0}, searchPointer->next, SKYBLUE};
 					searchPointer->next = newNode;
@@ -283,7 +283,7 @@ void LinkedListState::searchNode(int value)
 	if (head == nullptr) { currentErrorSlot = 2; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
 	searchTargetValue = value; searchPointer = head; searchPointer->color = YELLOW;
-	isAnimating = true; currentTask = TASK_SEARCH; animTimer = 0.0f;
+	isAnimating = true; currentTask = LL_TASK_SEARCH; animTimer = 0.0f;
 }
 
 void LinkedListState::deleteNodeAtIndex(int index)
@@ -295,7 +295,7 @@ void LinkedListState::deleteNodeAtIndex(int index)
 		LLNode* temp = head; head = head->next; delete temp; updateTargetPositions();
 	} else {
 		searchTargetIndex = index; searchCurrentIndex = 0; searchPointer = head; searchPointer->color = YELLOW;
-		isAnimating = true; currentTask = TASK_DELETE_INDEX; animTimer = 0.0f;
+		isAnimating = true; currentTask = LL_TASK_DELETE_INDEX; animTimer = 0.0f;
 	}
 }
 
@@ -324,7 +324,7 @@ void LinkedListState::insertNodeAtIndex(int index, int value)
 	} else {
 		searchTargetIndex = index; searchTargetValue = value; searchCurrentIndex = 0;
 		searchPointer = head; searchPointer->color = YELLOW; isAnimating = true;
-		currentTask = TASK_INSERT_INDEX; animTimer = 0.0f;
+		currentTask = LL_TASK_INSERT_INDEX; animTimer = 0.0f;
 	}
 }
 

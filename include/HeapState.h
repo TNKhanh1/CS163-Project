@@ -1,14 +1,21 @@
 #pragma once
-#include "Heap.h"
 #include "DataStructureState.h"
+#include "Heap.h"
 #include <raylib.h>
 #include <raymath.h>
 #include <vector>
 #include <string>
-#include <iostream>
 
-enum HeapSubPanel { HEAP_SUB_NONE, HEAP_SUB_CREATE, HEAP_SUB_INSERT, HEAP_SUB_DELETE };
-enum HeapInput { HEAP_INP_NONE, HEAP_INP_INSERT_VAL };
+// Enum quản lý các tác vụ đang chờ chạy animation (Step-by-step)
+enum HeapTask { HEAP_TASK_NONE, HEAP_TASK_INSERT, HEAP_TASK_SEARCH, HEAP_TASK_UPDATE, HEAP_TASK_EXTRACT };
+
+// Cấu trúc lưu trữ trạng thái hiển thị của từng Node trên màn hình
+struct HeapNodeVisual {
+    int value;
+    Vector2 position;
+    Vector2 targetPosition;
+    Color color;
+};
 
 class HeapState : public DataStructureState 
 {
@@ -16,33 +23,47 @@ public:
     HeapState();
     ~HeapState();
 
+    // Các hàm vòng đời của State
     void loadAssets() override;
     void update(float deltaTime) override;
     void draw() override;
 
+protected:
+    // Cài đặt các hàm ảo bắt buộc từ DataStructureState
+    void handleAnimationStep() override;
     void DrawSubMenuContent() override;
     void onExecuteOp(MainOp op) override;
 
 private:
     BinaryHeap heap; 
+    std::vector<HeapNodeVisual> visualNodes;
 
-    Texture2D controlTex;
-    Vector2 controlBtnPos;
-    Vector2 dragOffset;
-    bool isDraggingControlBtn, isClickingControlBtn, isPanelOpen;
-    float panelAnimProgress;
+    // Quản lý trạng thái Animation (Step-by-step)
+    HeapTask currentTask;
+    int animCurrentIdx;
+    int animParentIdx;
+    int animTargetValue;
+    int animUpdateValue;
+    bool updateHeapifyUp;
+    int insertAnimPhase;
+    int activeCodeLine;
+    float previousZoomMultiplier;
+
+    // Quản lý trạng thái UI phụ (Kế thừa pattern từ LinkedListState)
+    int activeInputFocus; // -1: None, 0: Create, 1: Insert, 2: Search, 3: UpdIdx, 4: UpdVal
+    int previousInputFocus;
+    bool isCreateUserDefOpen;
+
+    // Lưu trữ mã giả (Pseudo-code) để hiển thị trên màn hình
+    std::vector<std::string> pseudoCode;
+
+    // Các hàm bổ trợ xử lý dữ liệu và giao diện
+    void syncVisualNodes();
+    void updateTargetPositions();
+    void resetNodeColors();
+    void startAnimation(HeapTask task, int val1, int val2 = 0);
     
-    HeapSubPanel activeSubPanel;
-    HeapInput activeInput, previousActiveInput;
-
-    std::string inputInsertVal;
-    int cursorIndex;
-    float cursorBlinkTimer, textScrollX;
-    bool cursorVisible;
-
-    bool IsValidInputString(const std::string& str, HeapInput type);
-    void HandleTextInput(std::string& text, HeapInput type);
-    bool DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected = false);
-    bool DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height);
-    void DrawLabel(Vector2 pos, const char* text);
+    // Tách riêng hàm vẽ để code clear hơn
+    void drawBinaryTree();
+    void drawHorizontalArray();
 };
