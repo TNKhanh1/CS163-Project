@@ -12,15 +12,22 @@ public:
     void loadAssets() override;
     void update(float deltaTime) override;
     void draw() override;
+    bool checkBuffer(string& currentInput, int id) const;
 
 protected:
 	void DrawSubMenuContent() override;
-	void onExecuteOp(MainOp op) override;
+	void onExecuteOp(MainOp op, int val) override;
     
 private:
-    AVLTree avl;
+    AVLTree* avl[2];
+    int cur = 0;
     int previousInputFocus;
     int activeInputFocus;
+    int latest;
+    int valOp[3] = {0, 0, 0};
+    int undoBound = 0;
+    int undoOp[3] = {0, 0, 0};
+    int redoBound = 0;
 
     const int TASK_NONE = 0;
     const int TASK_HIGHLIGHT_NEW = 1;

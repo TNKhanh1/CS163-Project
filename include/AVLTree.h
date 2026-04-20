@@ -47,6 +47,8 @@ private:
 
     int fixHeights(Node* node);
 
+    Node* copyHelper(const Node* node);
+
 public:
     AVLTree();
     ~AVLTree();
@@ -62,4 +64,6 @@ public:
     void delNode(int k);
 
     void clear();
+
+    void copyTree(AVLTree avl);
 };

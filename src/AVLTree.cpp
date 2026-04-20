@@ -189,6 +189,19 @@ void AVLTree :: upHeight(Node*& node, float mul, float coord, float side) {
     upHeight(node->right, mul, coord*0.5f, 0.5f);
 }
 
+Node* AVLTree :: copyHelper(const Node* node) {
+    if (node == nullptr) return nullptr;
+
+    Node* newNode = new Node(node->key, node->position.y - 50.0f, node->position.x - 900.0f);
+    newNode->height = node->height;
+    newNode->color = node->color;
+    newNode->targetPosition = node->targetPosition;
+
+    newNode->left = copyHelper(node->left);
+    newNode->right = copyHelper(node->right);
+    return newNode;
+}
+
 AVLTree :: AVLTree(): root(nullptr) {}
 
 AVLTree :: ~AVLTree() {
@@ -228,4 +241,10 @@ void AVLTree :: clear() {
         delete root;
         root = nullptr;
     }
+}
+
+void AVLTree :: copyTree(AVLTree avl) {
+    if (root != nullptr) clear();
+    Node* avlNew = avl.rootcall();
+    root = copyHelper(avlNew);
 }
