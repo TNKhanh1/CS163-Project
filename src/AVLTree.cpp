@@ -243,8 +243,7 @@ void AVLTree :: clear() {
     }
 }
 
-void AVLTree :: copyTree(AVLTree avl) {
+void AVLTree :: copyTree(AVLTree& avl) {
     if (root != nullptr) clear();
-    Node* avlNew = avl.rootcall();
-    root = copyHelper(avlNew);
+    root = copyHelper(avl.rootCall());
 }

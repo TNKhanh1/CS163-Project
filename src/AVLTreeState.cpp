@@ -5,10 +5,17 @@ AVLTreeState::AVLTreeState() : DataStructureState()
     NextState = (int)STATE_AVLTREE;
     activeInputFocus = -1;
     previousInputFocus = -1;
+
+    for (int i = 0; i < 3; i++) {
+        avl[i] = new AVLTree();
+    }
 }
 
 AVLTreeState::~AVLTreeState()
 {
+    for (int i = 0; i < 3; i++) {
+        delete avl[i];
+    }   
 }
 
 void AVLTreeState::loadAssets()
@@ -124,7 +131,7 @@ void AVLTreeState::draw()
     DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear", "Undo", "Redo"});
 }
 
-bool checkBuffer(string& currentInput, int id) const {
+bool AVLTreeState::checkBuffer(std::string& currentInput, int id) {
     if (currentInput.empty()) {
 		currentErrorSlot = id; 
 		inputErrorMsg = "Value cannot be empty!";
@@ -155,8 +162,7 @@ void AVLTreeState::DrawSubMenuContent()
             if (DrawButtonText({subX + 190, startY}, "GO", 50, mainHeight, false)) {
                 if (checkBuffer(inputBuffers[1], 1)) {
                     try {		
-                        int value = std::stoi(inputBuffers[1]);
-                        onExecuteOp(OP_SLOT1, value);
+                        onExecuteOp(OP_SLOT1);
                     }
                     catch (...) {
                         currentErrorSlot = 1;
@@ -176,8 +182,7 @@ void AVLTreeState::DrawSubMenuContent()
             if (DrawButtonText({subX + 190, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
                 if (checkBuffer(inputBuffers[2], 2)) {
                     try {		
-                        int value = std::stoi(inputBuffers[2]);
-                        onExecuteOp(OP_SLOT2, value);
+                        onExecuteOp(OP_SLOT2);
                     }
                     catch (...) {
                         currentErrorSlot = 2;
@@ -197,8 +202,7 @@ void AVLTreeState::DrawSubMenuContent()
             if (DrawButtonText({subX + 190, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
                 if (checkBuffer(inputBuffers[3], 3)) {
                     try {		
-                        int value = std::stoi(inputBuffers[3]);
-                        onExecuteOp(OP_SLOT3, value);
+                        onExecuteOp(OP_SLOT3);
                     }
                     catch (...) {
                         currentErrorSlot = 3;
@@ -213,20 +217,20 @@ void AVLTreeState::DrawSubMenuContent()
             // Shift the Y position down for the 3rd slot
 
             if (DrawButtonText({subX + 90, startY + 3 * (mainHeight + gap)}, "ACCEPT CLEAR", 150, mainHeight, false)) {
-                onExecuteOp(OP_SLOT4, 0);
+                onExecuteOp(OP_SLOT4);
             }
             break;
 
         case OP_SLOT5: // Undo
             // Shift the Y position down for the 3rd slot
 
-            onExecuteOp(OP_SLOT5, 0);
+            onExecuteOp(OP_SLOT5);
             break;
 
         case OP_SLOT6: // Redo
             // Shift the Y position down for the 3rd slot
 
-            onExecuteOp(OP_SLOT6, 0);
+            onExecuteOp(OP_SLOT6);
             break;
             
         default:
@@ -234,12 +238,12 @@ void AVLTreeState::DrawSubMenuContent()
     }
 }
 
-void AVLTreeState::onExecuteOp(MainOp op, int value)
+void AVLTreeState::onExecuteOp(MainOp op)
 {
     
     if (op == OP_SLOT4) {
         // 1. Wipe the tree data
-        cur = (cur + 1) % 2;
+        cur = (cur + 1) % 3;
         if (avl[cur] != nullptr) avl[cur]->clear();
         latest = (latest + 1) % 3;
         undoOp[latest] = 4;
@@ -257,26 +261,24 @@ void AVLTreeState::onExecuteOp(MainOp op, int value)
         return;
     }
     else if (op == OP_SLOT5) {
-        if (bound > 0) {
+        if (undoBound > 0) {
             if (undoOp[latest] == 1) {
-                onExecuteOp(static_cast<MainOp>(2), valOp[latest]);
+                avl[cur]->delNode(valOp[latest]);
                 latest = (latest + 2) % 3;
                 redoBound++;
                 undoBound--;
             }
             else if (undoOp[latest] == 2) {
-                onExecuteOp(static_cast<MainOp>(1), valOp[latest]);
+                avl[cur]->insert(valOp[latest]);
                 latest = (latest + 2) % 3;
                 redoBound++;
                 undoBound--;
             }
             else if (undoOp[latest] == 4) {
-                avl[cur]->copyTree(secureTree[--secureNum]);
-                secureTree[secureNum].clear();
+                cur = (cur + 2) % 3;
                 latest = (latest + 2) % 3;
                 redoBound++;
                 undoBound--;
-                searchPointer = nullptr;
             }
         }
 
@@ -291,17 +293,17 @@ void AVLTreeState::onExecuteOp(MainOp op, int value)
         if (redoBound > 0) {
             latest = (latest + 1) % 3;
             if (undoOp[latest] == 1) {
-                onExecuteOp(static_cast<MainOp>(1), valOp[latest]);
+                avl[cur]->insert(valOp[latest]);
                 redoBound--;
                 undoBound++;
             }
             else if (undoOp[latest] == 2) {
-                onExecuteOp(static_cast<MainOp>(2), valOp[latest]);
+                avl[cur]->delNode(valOp[latest]);
                 redoBound--;
                 undoBound++;
             }
             else if (undoOp[latest] == 4) {
-                cur = (cur + 1) % 2;
+                cur = (cur + 1) % 3;
                 redoBound--;
                 undoBound++;
             }
@@ -319,6 +321,11 @@ void AVLTreeState::onExecuteOp(MainOp op, int value)
     // Reset colors before starting a new operation!
     resetNodeColors(const_cast<Node*>(avl[cur]->rootCall()));
     int curOp = 0;
+    int id = 0;
+    if (op == OP_SLOT1) id = 1;
+    else if (op == OP_SLOT2) id = 2;
+    else if (op == OP_SLOT3) id = 3;
+    int value = std::stoi(inputBuffers[id]);
 
     if (op == OP_SLOT1) { // OP_INSERT
         if (avl[cur]->rootCall() == nullptr) {
@@ -355,7 +362,7 @@ void AVLTreeState::onExecuteOp(MainOp op, int value)
             currentTask = TASK_HIGHLIGHT_NEW;
             animTimer = 1.5f; 
         } else {
-            currentErrorSlot = slotIndex;
+            currentErrorSlot = 3;
             inputErrorMsg = "Value not found!";
             inputErrorTimer = 2.5f;
         }

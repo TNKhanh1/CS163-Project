@@ -65,5 +65,5 @@ public:
 
     void clear();
 
-    void copyTree(AVLTree avl);
+    void copyTree(AVLTree& avl);
 };

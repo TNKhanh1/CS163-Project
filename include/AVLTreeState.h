@@ -12,14 +12,14 @@ public:
     void loadAssets() override;
     void update(float deltaTime) override;
     void draw() override;
-    bool checkBuffer(string& currentInput, int id) const;
+    bool checkBuffer(std::string& currentInput, int id);
 
 protected:
 	void DrawSubMenuContent() override;
-	void onExecuteOp(MainOp op, int val) override;
+	void onExecuteOp(MainOp op) override;
     
 private:
-    AVLTree* avl[2];
+    AVLTree* avl[3];
     int cur = 0;
     int previousInputFocus;
     int activeInputFocus;
