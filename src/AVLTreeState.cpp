@@ -221,17 +221,17 @@ void AVLTreeState::DrawSubMenuContent()
             }
             break;
 
-        case OP_SLOT5: // Undo
-            // Shift the Y position down for the 3rd slot
+        // case OP_SLOT5: // Undo
+        //     // Shift the Y position down for the 3rd slot
 
-            onExecuteOp(OP_SLOT5);
-            break;
+        //     onExecuteOp(OP_SLOT5);
+        //     break;
 
-        case OP_SLOT6: // Redo
-            // Shift the Y position down for the 3rd slot
+        // case OP_SLOT6: // Redo
+        //     // Shift the Y position down for the 3rd slot
 
-            onExecuteOp(OP_SLOT6);
-            break;
+        //     onExecuteOp(OP_SLOT6);
+        //     break;
             
         default:
             break;
@@ -260,62 +260,62 @@ void AVLTreeState::onExecuteOp(MainOp op)
         activeInputFocus = -1;
         return;
     }
-    else if (op == OP_SLOT5) {
-        if (undoBound > 0) {
-            if (undoOp[latest] == 1) {
-                avl[cur]->delNode(valOp[latest]);
-                latest = (latest + 2) % 3;
-                redoBound++;
-                undoBound--;
-            }
-            else if (undoOp[latest] == 2) {
-                avl[cur]->insert(valOp[latest]);
-                latest = (latest + 2) % 3;
-                redoBound++;
-                undoBound--;
-            }
-            else if (undoOp[latest] == 4) {
-                cur = (cur + 2) % 3;
-                latest = (latest + 2) % 3;
-                redoBound++;
-                undoBound--;
-            }
-        }
+    // else if (op == OP_SLOT5) {
+    //     if (undoBound > 0) {
+    //         if (undoOp[latest] == 1) {
+    //             avl[cur]->delNode(valOp[latest]);
+    //             latest = (latest + 2) % 3;
+    //             redoBound++;
+    //             undoBound--;
+    //         }
+    //         else if (undoOp[latest] == 2) {
+    //             avl[cur]->insert(valOp[latest]);
+    //             latest = (latest + 2) % 3;
+    //             redoBound++;
+    //             undoBound--;
+    //         }
+    //         else if (undoOp[latest] == 4) {
+    //             cur = (cur + 2) % 3;
+    //             latest = (latest + 2) % 3;
+    //             redoBound++;
+    //             undoBound--;
+    //         }
+    //     }
 
-        currentTask = TASK_NONE;
-        animTimer = 0.0f;
-        searchPointer = nullptr;
-        inputErrorMsg = "";
-        activeInputFocus = -1;
-        return;
-    }
-    else if (op == OP_SLOT6) {
-        if (redoBound > 0) {
-            latest = (latest + 1) % 3;
-            if (undoOp[latest] == 1) {
-                avl[cur]->insert(valOp[latest]);
-                redoBound--;
-                undoBound++;
-            }
-            else if (undoOp[latest] == 2) {
-                avl[cur]->delNode(valOp[latest]);
-                redoBound--;
-                undoBound++;
-            }
-            else if (undoOp[latest] == 4) {
-                cur = (cur + 1) % 3;
-                redoBound--;
-                undoBound++;
-            }
-        }
+    //     currentTask = TASK_NONE;
+    //     animTimer = 0.0f;
+    //     searchPointer = nullptr;
+    //     inputErrorMsg = "";
+    //     activeInputFocus = -1;
+    //     return;
+    // }
+    // else if (op == OP_SLOT6) {
+    //     if (redoBound > 0) {
+    //         latest = (latest + 1) % 3;
+    //         if (undoOp[latest] == 1) {
+    //             avl[cur]->insert(valOp[latest]);
+    //             redoBound--;
+    //             undoBound++;
+    //         }
+    //         else if (undoOp[latest] == 2) {
+    //             avl[cur]->delNode(valOp[latest]);
+    //             redoBound--;
+    //             undoBound++;
+    //         }
+    //         else if (undoOp[latest] == 4) {
+    //             cur = (cur + 1) % 3;
+    //             redoBound--;
+    //             undoBound++;
+    //         }
+    //     }
 
-        currentTask = TASK_NONE;
-        animTimer = 0.0f;
-        searchPointer = nullptr;
-        inputErrorMsg = "";
-        activeInputFocus = -1;
-        return;
-    }
+    //     currentTask = TASK_NONE;
+    //     animTimer = 0.0f;
+    //     searchPointer = nullptr;
+    //     inputErrorMsg = "";
+    //     activeInputFocus = -1;
+    //     return;
+    // }
 
 			
     // Reset colors before starting a new operation!
