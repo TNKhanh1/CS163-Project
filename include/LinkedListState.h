@@ -55,6 +55,10 @@ private:
 	PendingTask currentTask;
 	float previousZoomMultiplier;
 
+	// Pseudocode
+    int activeCodeLine;
+    std::vector<std::string> pseudoCodeLines;
+
     // Helper functions for linked list operations and UI
 	void insertNode(int value);
 	void insertNodeAtIndex(int index, int value);
@@ -63,6 +67,4 @@ private:
 	void clearList();
 	void updateTargetPositions();
 	void resetNodeColors();
-	
-	// NOTE: IsValidInputString and HandleTextInput were REMOVED because they are now inherited from DataStructureState.
 };

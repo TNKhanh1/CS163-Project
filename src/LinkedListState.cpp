@@ -20,6 +20,13 @@ LinkedListState::LinkedListState() : DataStructureState()
 	searchPointer = nullptr;
 	currentTask = LL_TASK_NONE;
 	previousZoomMultiplier = 1.0f;
+
+	activeCodeLine = -1;
+	pseudoCodeLines = {
+		"// Select an operation from",
+		"// the control panel to see",
+		"// the algorithm execution."
+	};
 }
 
 LinkedListState::~LinkedListState()
@@ -119,18 +126,23 @@ void LinkedListState::onExecuteOp(MainOp op)
 void LinkedListState::handleAnimationStep()
 {
 	if (currentTask == LL_TASK_SEARCH && searchPointer) {
+		activeCodeLine = 1; // while loop condition
 		if (searchPointer->value == searchTargetValue) {
 			searchPointer->color = ORANGE; 
-			isAnimating = false;
+			activeCodeLine = 3; // return temp;
+			isAnimating = false; isAnimFinished = true;
 		} else {
 			searchPointer->color = LIGHTGRAY; 
 			searchPointer = searchPointer->next;
-			if (searchPointer) searchPointer->color = YELLOW;
-			else {
-				currentErrorSlot = 2; // SEARCH row
+			if (searchPointer) {
+				searchPointer->color = YELLOW;
+				activeCodeLine = 4; // temp = temp->next;
+			} else {
+				currentErrorSlot = 2;
 				inputErrorMsg = "Value not found!";
 				inputErrorTimer = 2.5f;
-				isAnimating = false;
+				activeCodeLine = 6; // return null;
+				isAnimating = false; isAnimFinished = true;
 			}
 		}
 	} 
@@ -140,14 +152,16 @@ void LinkedListState::handleAnimationStep()
 			searchPointer = searchPointer->next;
 			if (searchPointer) searchPointer->color = YELLOW;
 			searchCurrentIndex++;
+			activeCodeLine = 2; // temp = temp->next;
 		} else {
 			if (currentTask == LL_TASK_DELETE_INDEX) {
 				if (searchCurrentIndex == searchTargetIndex - 1 && searchPointer && searchPointer->next) {
 					LLNode* toDelete = searchPointer->next;
 					searchPointer->next = toDelete->next;
 					delete toDelete;
+					activeCodeLine = 4; // temp->next = toDelete->next;
 				} else {
-					currentErrorSlot = 3; // DELETE row
+					currentErrorSlot = 3;
 					inputErrorMsg = "Index out of bounds!";
 					inputErrorTimer = 2.5f;
 				}
@@ -156,14 +170,15 @@ void LinkedListState::handleAnimationStep()
 				if (searchCurrentIndex == searchTargetIndex - 1 && searchPointer) {
 					LLNode* newNode = new LLNode{searchTargetValue, {startX, startY - 200}, {0,0}, searchPointer->next, SKYBLUE};
 					searchPointer->next = newNode;
+					activeCodeLine = 4; // newNode->next = temp->next;
 				} else {
-					currentErrorSlot = 1; // INSERT row
+					currentErrorSlot = 1;
 					inputErrorMsg = "Index out of bounds!";
 					inputErrorTimer = 2.5f;
 				}
 			}
 			updateTargetPositions();
-			isAnimating = false;
+			isAnimating = false; isAnimFinished = true;
 			resetNodeColors();
 		}
 	}
@@ -273,33 +288,46 @@ void LinkedListState::draw()
 		curr = curr->next;
 	}
 
+	// Pseudocode Panel
+	float pcX = 1315.0f, pcY = 150.0f;
+	float pcWidth = 450.0f, pcHeight = 450.0f;
+	DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
+	DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
+	DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
+	
+	float lineHeight = 28.0f;
+	float textPadding = 15.0f;
+	for (int i = 0; i < (int)pseudoCodeLines.size(); i++) {
+		Color textCol = BLACK;
+		if (i == activeCodeLine) {
+			DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
+			textCol = RED;
+		}
+		
+		std::string line = pseudoCodeLines[i];
+		if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
+			size_t spacePos = line.find_last_of(' ', 60);
+			if (spacePos != std::string::npos) {
+				std::string first = line.substr(0, spacePos);
+				std::string second = line.substr(spacePos + 1);
+				DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+				DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
+			} else {
+				DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+			}
+		} else {
+			DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+		}
+	}
+
 	// 4. Control Panel UI
 	DrawTextureV(controlTex, controlBtnPos, WHITE);
-	DrawSideMenuFrame({"Create", "Insert", "Search", "Delete"}); // Delegates to base class
+	DrawSideMenuFrame({"Create", "Insert", "Search", "Delete"});
 }
 
-void LinkedListState::searchNode(int value)
-{
-	if (head == nullptr) { currentErrorSlot = 2; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
-	resetNodeColors();
-	searchTargetValue = value; searchPointer = head; searchPointer->color = YELLOW;
-	isAnimating = true; currentTask = LL_TASK_SEARCH; animTimer = 0.0f;
-}
 
-void LinkedListState::deleteNodeAtIndex(int index)
-{
-	if (head == nullptr) { currentErrorSlot = 3; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
-	if (index < 0) { currentErrorSlot = 3; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
-	resetNodeColors();
-	if (index == 0) {
-		LLNode* temp = head; head = head->next; delete temp; updateTargetPositions();
-	} else {
-		searchTargetIndex = index; searchCurrentIndex = 0; searchPointer = head; searchPointer->color = YELLOW;
-		isAnimating = true; currentTask = LL_TASK_DELETE_INDEX; animTimer = 0.0f;
-	}
-}
+// CÁC HÀM XỬ LÝ LINKED LIST
 
-// CÁC HÀM XỬ LÝ LINKED LIST 
 void LinkedListState::insertNode(int value)
 {
 	resetNodeColors();
@@ -314,16 +342,74 @@ void LinkedListState::insertNode(int value)
 	updateTargetPositions(); 
 }
 
+void LinkedListState::searchNode(int value)
+{
+	if (head == nullptr) { currentErrorSlot = 2; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
+	resetNodeColors();
+	
+	pseudoCodeLines = {
+		"Node* temp = head;",
+		"while (temp != nullptr) {",
+		"    if (temp->value == target)",
+		"        return temp;",
+		"    temp = temp->next;",
+		"}",
+		"return null;"
+	};
+	activeCodeLine = 1;
+	
+	searchTargetValue = value; searchPointer = head; searchPointer->color = YELLOW;
+	isAnimating = true; isAnimFinished = false;
+	currentTask = LL_TASK_SEARCH; animTimer = 0.0f;
+}
+
+void LinkedListState::deleteNodeAtIndex(int index)
+{
+	if (head == nullptr) { currentErrorSlot = 3; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
+	if (index < 0) { currentErrorSlot = 3; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
+	resetNodeColors();
+	
+	if (index == 0) {
+		LLNode* temp = head; head = head->next; delete temp; updateTargetPositions();
+	} else {
+		pseudoCodeLines = {
+			"Node* temp = head;",
+			"for (int i = 0; i < index - 1; i++)",
+			"    temp = temp->next;",
+			"Node* toDelete = temp->next;",
+			"temp->next = toDelete->next;",
+			"delete toDelete;"
+		};
+		activeCodeLine = 1;
+
+		searchTargetIndex = index; searchCurrentIndex = 0; searchPointer = head; searchPointer->color = YELLOW;
+		isAnimating = true; isAnimFinished = false;
+		currentTask = LL_TASK_DELETE_INDEX; animTimer = 0.0f;
+	}
+}
+
 void LinkedListState::insertNodeAtIndex(int index, int value)
 {
 	if (index < 0) { currentErrorSlot = 1; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
+	
 	if (index == 0 || head == nullptr) {
 		LLNode* newNode = new LLNode{ value, {startX, startY - 200.0f}, {0,0}, head, SKYBLUE };
 		head = newNode; updateTargetPositions();
 	} else {
+		pseudoCodeLines = {
+			"Node* temp = head;",
+			"for (int i = 0; i < index - 1; i++)",
+			"    temp = temp->next;",
+			"Node* newNode = new Node(value);",
+			"newNode->next = temp->next;",
+			"temp->next = newNode;"
+		};
+		activeCodeLine = 1;
+		
 		searchTargetIndex = index; searchTargetValue = value; searchCurrentIndex = 0;
-		searchPointer = head; searchPointer->color = YELLOW; isAnimating = true;
+		searchPointer = head; searchPointer->color = YELLOW; 
+		isAnimating = true; isAnimFinished = false;
 		currentTask = LL_TASK_INSERT_INDEX; animTimer = 0.0f;
 	}
 }
