@@ -87,6 +87,24 @@ void MSTState::update(float deltaTime)
     }
 }
 
+void MSTState::saveState()
+{
+    history.push_back({currentAnimIndex, animPhase, activeCodeLine});
+}
+
+void MSTState::undoState()
+{    
+    if (!history.empty())
+    {
+        MSTSnapshot lastState = history.back();
+        history.pop_back();
+
+        currentAnimIndex = lastState.animIndex;
+        animPhase = lastState.animPhase;
+        activeCodeLine = lastState.activeCodeLine;
+    }
+}
+
 void MSTState::onExecuteOp(MainOp op)
 {
     try
@@ -120,6 +138,7 @@ void MSTState::onExecuteOp(MainOp op)
                 currentAnimIndex = 0;
                 currentAnimType = KRUSKAL;
                 isAnimating = true;
+                history.clear();
                 animTimer = 0.0f;
                 animPhase = 0;      // Reset phase
                 activeCodeLine = 1;
@@ -148,6 +167,7 @@ void MSTState::onExecuteOp(MainOp op)
                     currentAnimIndex = 0;
                     currentAnimType = PRIM;
                     isAnimating = true;
+                    history.clear();
                     animTimer = 0.0f;
                     animPhase = 0;      // Reset phase
                     activeCodeLine = 1; 
@@ -205,7 +225,7 @@ void MSTState::handleAnimationStep()
         else
         {
             activeCodeLine = 8; // Dòng: return mst;
-            isAnimating = false;
+            //isAnimating = false;
         }
     }
     else if (currentAnimType == PRIM)
@@ -227,7 +247,7 @@ void MSTState::handleAnimationStep()
         else
         {
             activeCodeLine = 10; // Dòng: return mst;
-            isAnimating = false;
+            //isAnimating = false;
         }
     }
     else
