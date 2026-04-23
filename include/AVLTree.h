@@ -34,7 +34,7 @@ private:
 
     Node* rightRotate(Node* y, float coord);
     Node* leftRotate(Node* x, float coord);
-    bool balancingRotation(Node*& node);
+    int balancingRotation(Node*& node);
 
     void remove(Node*& node, int key, float coord);
 
@@ -59,7 +59,7 @@ public:
 
     void insert(int k);
 
-    bool balance();
+    int balance();
 
     void delNode(int k);
 

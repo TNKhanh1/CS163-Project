@@ -29,6 +29,9 @@ private:
     int undoOp[3] = {0, 0, 0};
     int redoBound = 0;
 
+    std::vector<std::string> pseudoCode;
+    int activeCodeLine;
+
     const int TASK_NONE = 0;
     const int TASK_HIGHLIGHT_NEW = 1;
     const int TASK_TRAVERSE_INSERT = 2;

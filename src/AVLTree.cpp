@@ -72,12 +72,14 @@ Node* AVLTree :: rightRotate(Node* y, float coord) {
 //     }
 // }
 
-bool AVLTree::balancingRotation(Node*& node) {
-    if (node == nullptr) return false;
+int AVLTree::balancingRotation(Node*& node) {
+    if (node == nullptr) return 0;
 
     // Go to the bottom of the tree first
-    if (balancingRotation(node->left)) return true;
-    if (balancingRotation(node->right)) return true;
+    int leftCheck = balancingRotation(node->left);
+    if (leftCheck) return leftCheck;
+    int rightCheck = balancingRotation(node->right);
+    if (rightCheck) return rightCheck;
 
     // Check balance of current node
     node->height = 1 + std::max(height(node->left), height(node->right));
@@ -87,12 +89,11 @@ bool AVLTree::balancingRotation(Node*& node) {
     if (balance > 1) {
         if (getBalance(node->left) < 0) {
             // Left-Right Case: Do the Left rotation first!
-            node->left = leftRotate(node->left, 1.0f); // Adjust "1.0f" coord if your leftRotate needs it
-            return true; // Stop here so UI can pause!
+            node->left = leftRotate(node->left, 1.0f);
+            return 3; //Left rotation first for LR
         }
-        // Left-Left Case
         node = rightRotate(node, 1.0f);
-        return true; 
+        return 1; //Right rotation
     }
     
     // Right Heavy
@@ -100,14 +101,14 @@ bool AVLTree::balancingRotation(Node*& node) {
         if (getBalance(node->right) > 0) {
             // Right-Left Case: Do the Right rotation first!
             node->right = rightRotate(node->right, 1.0f); 
-            return true; // Stop here so UI can pause!
+            return 4; //Right rotation first for RL
         }
         // Right-Right Case
         node = leftRotate(node, 1.0f);
-        return true;
+        return 2; //Right rotation
     }
 
-    return false; // Already balanced
+    return 0; // Already balanced
 }
 
 void AVLTree :: remove(Node*& node, int key, float coord) {
@@ -218,7 +219,7 @@ void AVLTree :: insert(int k) {
     insertTo(root,k, twoPower(height(root) - 3)*20.0f);
 }
 
-bool AVLTree :: balance() {
+int AVLTree :: balance() {
     return balancingRotation(root);
 }
 

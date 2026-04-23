@@ -48,43 +48,56 @@ void AVLTreeState::update(float deltaTime)
     animTimer -= deltaTime;
     
     if (animTimer <= 0.0f) {
-        if (searchTargetValue < searchPointer->key) {
-            if (searchPointer->left != nullptr) {
-                searchPointer = searchPointer->left;
-                const_cast<Node*>(searchPointer)->color = YELLOW;
-                animTimer = 0.4f;
-            } else {
-                avl[cur]->insert(searchTargetValue);
-                resetNodeColors(const_cast<Node*>(avl[cur]->rootCall()));
-                
-                const Node* newObj = avl[cur]->search(searchTargetValue);
-                if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
-                currentTask = TASK_HIGHLIGHT_NEW;
-                animTimer = 1.0f;
+        if (activeCodeLine == 0) {
+                if (searchTargetValue < searchPointer->key) {
+                    activeCodeLine = 3; // Highlight "node->left = insert(...)"
+                    animTimer = 0.8f;
+                } 
+                else if (searchTargetValue > searchPointer->key) {
+                    activeCodeLine = 5; // Highlight "node->right = insert(...)"
+                    animTimer = 0.8f;
+                }
+                else {
+                    // Duplicate found (cancel insertion)
+                    const_cast<Node*>(searchPointer)->color = SKYBLUE;
+                    currentTask = TASK_NONE;
+                    activeCodeLine = -1;
+                }
             }
-        } 
-        else if (searchTargetValue > searchPointer->key) {
-            if (searchPointer->right != nullptr) {
-                searchPointer = searchPointer->right;
-                const_cast<Node*>(searchPointer)->color = YELLOW;
-                animTimer = 0.4f; 
-            } else {
-                avl[cur]->insert(searchTargetValue);
-                resetNodeColors(const_cast<Node*>(avl[cur]->rootCall()));
+            else if (activeCodeLine == 3 || activeCodeLine == 5) {
                 
-                const Node* newObj = avl[cur]->search(searchTargetValue);
-                if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
-                currentTask = TASK_HIGHLIGHT_NEW;
-                animTimer = 1.0f;
+                // Reset current node color
+                const_cast<Node*>(searchPointer)->color = SKYBLUE; 
+
+                if (searchTargetValue < searchPointer->key) {
+                    if (searchPointer->left != nullptr) {
+                        // Jump to the left child!
+                        searchPointer = searchPointer->left;
+                        const_cast<Node*>(searchPointer)->color = YELLOW;
+                        activeCodeLine = 0; // Loop back to the function signature!
+                        animTimer = 0.8f;
+                    } else {
+                        // Reached the bottom, insert it!
+                        activeCodeLine = 0; // Loop back to the function signature!
+                        animTimer = 0.8f;
+                        currentTask = TASK_HIGHLIGHT_NEW;
+                    }
+                } 
+                else if (searchTargetValue > searchPointer->key) {
+                    if (searchPointer->right != nullptr) {
+                        // Jump to the right child!
+                        searchPointer = searchPointer->right;
+                        const_cast<Node*>(searchPointer)->color = YELLOW;
+                        activeCodeLine = 0; // Loop back to the function signature!
+                        animTimer = 0.8f;
+                    } else {
+                        // Reached the bottom, insert it!
+                        activeCodeLine = 0; // Loop back to the function signature!
+                        animTimer = 0.8f;
+                        currentTask = TASK_HIGHLIGHT_NEW;
+                    }
+                }
             }
-        } 
-        else {
-            resetNodeColors(const_cast<Node*>(avl[cur]->rootCall()));
-            currentTask = TASK_NONE;
-            inputErrorMsg = "Value already in tree!";
-            inputErrorTimer = 2.0f;
-            currentErrorSlot = 0;
-        }
     }
 }
 
@@ -93,8 +106,23 @@ void AVLTreeState::update(float deltaTime)
         
         if (animTimer <= 0.0f) {
             // Time is up! Reset the colors and clear the task.
-            resetNodeColors(const_cast<Node*>(avl[cur]->rootCall()));
-            currentTask = TASK_WAIT_FOR_BALANCE;
+            if (activeCodeLine == 0) {
+                // We just highlighted the signature. Now highlight the base case!
+                activeCodeLine = 1; // "if (node == NULL) return new Node(key);"
+                animTimer = 0.8f;
+            } 
+            else if (activeCodeLine == 1) {
+                // Time to actually insert the node into the backend!
+                avl[cur]->insert(searchTargetValue);
+                
+                // Find it and color it green
+                const Node* newObj = avl[cur]->search(searchTargetValue);
+                if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
+                
+                // Move on to balancing
+                currentTask = TASK_WAIT_FOR_BALANCE;
+                animTimer = 0.6f;
+            }
         }
     }
     else if (currentTask == TASK_WAIT_FOR_BALANCE) {
@@ -102,16 +130,49 @@ void AVLTreeState::update(float deltaTime)
     
     if (animTimer <= 0.0f) {
         // Time is up! Try to do exactly ONE rotation.
-        bool didRotate = avl[cur]->balance();
+        int didRotate = avl[cur]->balance();
         
-        if (didRotate) {
-            // A rotation happened! Wait 1 second before doing the next one
-            // (This perfectly separates Right-Left rotations into two steps!)
-            animTimer = 0.5f; 
-        } else {
-            // No rotations needed, tree is fully balanced! Finish up.
+        if (didRotate != 0) {
+        // A rotation happened! Wait 1.5 second before doing the next one
+        animTimer = 1.5f;
+        // (This perfectly separates Right-Left rotations into two steps!)
+        if (didRotate == 1 || didRotate == 4) {
+                pseudoCode = {
+                    "Node* rightRotate(Node* y) {",
+                    "    Node* x = y->left;",
+                    "    Node* sub = x->right;",
+                    "    x->right = y;   // MAIN SWAP",
+                    "    y->left = sub;  // REATTACH SUBTREE",
+                    "    updateHeights();",
+                    "    return x;",
+                    "}"
+                };
+                activeCodeLine = 3; // Highlight the "x->right = y" line!
+            }
+            // If we did a LEFT rotate (RR Case, or first half of LR Case)
+            else if (didRotate == 2 || didRotate == 3) {
+                pseudoCode = {
+                    "Node* leftRotate(Node* x) {",
+                    "    Node* y = x->right;",
+                    "    Node* sub = y->left;",
+                    "    y->left = x;    // MAIN SWAP",
+                    "    x->right = sub; // REATTACH SUBTREE",
+                    "    updateHeights();",
+                    "    return y;",
+                    "}"
+                };
+                activeCodeLine = 3; // Highlight the "y->left = x" line!
+            }
+        } 
+        else {
+            // Tree is completely balanced! Clear task and reset the code box.
             currentTask = TASK_NONE;
-            animTimer = 1.5f;
+            animTimer = 0.0f;
+            pseudoCode = {
+                "// Tree is perfectly balanced!",
+                "// Waiting for next operation..."
+            };
+            activeCodeLine = -1; // Turn off highlight
         }
     }
 }
@@ -128,7 +189,39 @@ void AVLTreeState::draw()
     drawNode(avl[cur]->rootCall());
 
     DrawTextureV(controlTex, controlBtnPos, WHITE);
-    DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear", "Undo", "Redo"});
+    DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear"});
+
+    if (!pseudoCode.empty()) {
+        // 1. Define Box Size and Position (Bottom Right Corner)
+        float pcWidth = 450.0f;
+        float pcHeight = 350.0f;
+        float pcX = GetScreenWidth() - pcWidth - 20.0f;  
+        float pcY = 50.0f; // Above the control panel
+
+        // 2. Draw Background and Border
+        DrawRectangle(pcX, pcY, pcWidth, pcHeight, Fade(LIGHTGRAY, 0.8f));
+        DrawRectangleLines(pcX, pcY, pcWidth, pcHeight, DARKGRAY);
+
+        // 3. Draw Title
+        DrawTextEx(listFont, "Source Code:", {pcX + 15.0f, pcY + 15.0f}, 25.0f, 1.0f, DARKBLUE);
+
+        // 4. Draw the Code Lines with Highlight
+        float lineHeight = 28.0f;
+        float startY = pcY + 60.0f;
+        
+        for (int i = 0; i < (int)pseudoCode.size(); i++) {
+            Color textCol = BLACK;
+            
+            // If this is the active line, draw the yellow highlight and make text red!
+            if (i == activeCodeLine) {
+                DrawRectangle(pcX + 5.0f, startY + i * lineHeight - 2.0f, pcWidth - 10.0f, lineHeight, Fade(YELLOW, 0.6f));
+                textCol = RED;
+            }
+            
+            // Draw the actual line of code (respects the spaces for indentation)
+            DrawTextEx(numberFont, pseudoCode[i].c_str(), {pcX + 20.0f, startY + i * lineHeight}, 18.0f, 1.0f, textCol);
+        }
+    }
 }
 
 bool AVLTreeState::checkBuffer(std::string& currentInput, int id) {
@@ -328,14 +421,22 @@ void AVLTreeState::onExecuteOp(MainOp op)
     int value = std::stoi(inputBuffers[id]);
 
     if (op == OP_SLOT1) { // OP_INSERT
+        pseudoCode = {
+            "Node* insert(Node* node, int key) {",
+            "    if (node == NULL) return new Node(key);",
+            "    if (key < node->key)",
+            "        node->left = insert(node->left, key);",
+            "    else if (key > node->key)",
+            "        node->right = insert(node->right, key);",
+            "    ",
+            "    return balance(node);",
+            "}"
+        };
+        activeCodeLine = 0;
         if (avl[cur]->rootCall() == nullptr) {
-            avl[cur]->insert(value);
-            const Node* newObj = avl[cur]->search(value);
-            if (newObj != nullptr) {
-                const_cast<Node*>(newObj)->color = GREEN;
-                currentTask = TASK_HIGHLIGHT_NEW;
-                animTimer = 1.5f; 
-            }
+            searchTargetValue = value; 
+            currentTask = TASK_HIGHLIGHT_NEW;
+            animTimer = 0.8f;
         }
         else {
             // If nodes exist, start YELLOW search traversal!
@@ -350,11 +451,36 @@ void AVLTreeState::onExecuteOp(MainOp op)
         inputBuffers[1].clear();
     }
     else if (op == OP_SLOT2) {
+        pseudoCode = {
+            "Node* deleteNode(Node* node, int key) {",
+            "    if (node == NULL) return node;",
+            "    if (key < node->key) ",
+            "        node->left = deleteNode(node->left, key);",
+            "    else if (key > node->key) ",
+            "        node->right = deleteNode(node->right, key);",
+            "    else { /* Delete leaf or swap successor */ }",
+            "    ",
+            "    return balance(node);",
+            "}"
+        };
+        activeCodeLine = 0;
+        currentTask = TASK_WAIT_FOR_BALANCE;
+        animTimer = 0.8f;
         avl[cur]->delNode(value);
         curOp = 2;
         inputBuffers[2].clear();
     }
     else if (op == OP_SLOT3) {
+        pseudoCode = {
+            "Node* search(Node* node, int key) {",
+            "    if (node == NULL || node->key == key)",
+            "        return node;",
+            "    if (key < node->key)",
+            "        return search(node->left, key);",
+            "    return search(node->right, key);",
+            "}"
+        };
+        activeCodeLine = 0;
         const Node* foundNode = avl[cur]->search(value);
         if (foundNode != nullptr) {
             // Instantly highlight the found node GREEN for now
