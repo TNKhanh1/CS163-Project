@@ -22,6 +22,22 @@ struct LLNode {
 	Color color;
 };
 
+// Snapshot structures for undo/redo
+struct LLNodeSnapshot {
+	int value;
+	Color color;
+};
+
+struct LLStateSnapshot {
+	std::vector<LLNodeSnapshot> nodes;
+	int activeCodeLine;
+	PendingTask currentTask;
+	int searchPointerIndex;
+	int searchTargetValue;
+	int searchTargetIndex;
+	int searchCurrentIndex;
+};
+
 class LinkedListState : public DataStructureState 
 {
 public:
@@ -32,11 +48,16 @@ public:
 	void update(float deltaTime) override;
 	void draw() override;
 
+
+// Implementation of DataStructureState hooks
 protected:
-	// Implementation of DataStructureState hooks
 	void handleAnimationStep() override;
 	void DrawSubMenuContent() override;
 	void onExecuteOp(MainOp op) override;
+
+	// State management for undo/redo
+	void saveState() override;
+	void undoState() override;
 
 private:
 	// Linked list data
@@ -59,6 +80,9 @@ private:
     int activeCodeLine;
     std::vector<std::string> pseudoCodeLines;
 
+	// History for undo/redo
+	std::vector<LLStateSnapshot> history;
+	
     // Helper functions for linked list operations and UI
 	void insertNode(int value);
 	void insertNodeAtIndex(int index, int value);

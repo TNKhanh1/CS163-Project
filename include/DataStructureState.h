@@ -73,7 +73,8 @@ protected:
 	bool CheckStepReady(float deltaTime, float stepDuration);
 	void clearInputBuffers() { for (int i = 0; i < 5; i++) inputBuffers[i].clear(); }
 	virtual void handleAnimationStep() {} 
-	virtual void handleAnimationBackStep() {} 
+	virtual void saveState() {}
+	virtual void undoState() {}
 
 	// Menu drawing tools
 	void DrawSideMenuFrame(const std::vector<std::string>& labels);

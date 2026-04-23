@@ -76,6 +76,7 @@ void LinkedListState::update(float deltaTime)
 
 void LinkedListState::onExecuteOp(MainOp op)
 {
+	history.clear();
 	try {
 		switch (op) {
 			case OP_SLOT1: // Create
@@ -138,7 +139,7 @@ void LinkedListState::handleAnimationStep()
 				searchPointer->color = YELLOW;
 				activeCodeLine = 4; // temp = temp->next;
 			} else {
-				currentErrorSlot = 2;
+				currentErrorSlot = 2; // SEARCH row
 				inputErrorMsg = "Value not found!";
 				inputErrorTimer = 2.5f;
 				activeCodeLine = 6; // return null;
@@ -161,7 +162,7 @@ void LinkedListState::handleAnimationStep()
 					delete toDelete;
 					activeCodeLine = 4; // temp->next = toDelete->next;
 				} else {
-					currentErrorSlot = 3;
+					currentErrorSlot = 3; // DELETE row
 					inputErrorMsg = "Index out of bounds!";
 					inputErrorTimer = 2.5f;
 				}
@@ -172,7 +173,7 @@ void LinkedListState::handleAnimationStep()
 					searchPointer->next = newNode;
 					activeCodeLine = 4; // newNode->next = temp->next;
 				} else {
-					currentErrorSlot = 1;
+					currentErrorSlot = 1; // INSERT row
 					inputErrorMsg = "Index out of bounds!";
 					inputErrorTimer = 2.5f;
 				}
@@ -323,6 +324,77 @@ void LinkedListState::draw()
 	// 4. Control Panel UI
 	DrawTextureV(controlTex, controlBtnPos, WHITE);
 	DrawSideMenuFrame({"Create", "Insert", "Search", "Delete"});
+}
+
+// Undo/redo state management
+void LinkedListState::saveState()
+{
+	LLStateSnapshot snap;
+	snap.activeCodeLine = activeCodeLine;
+	snap.currentTask = currentTask;
+	snap.searchTargetValue = searchTargetValue;
+	snap.searchTargetIndex = searchTargetIndex;
+	snap.searchCurrentIndex = searchCurrentIndex;
+	snap.searchPointerIndex = -1;
+
+	// Copy the exact state of every node into the snapshot
+	LLNode* curr = head;
+	int currentIndex = 0;
+	while (curr != nullptr) {
+		snap.nodes.push_back({ curr->value, curr->color });
+		if (curr == searchPointer) {
+			snap.searchPointerIndex = currentIndex;
+		}
+		curr = curr->next;
+		currentIndex++;
+	}
+
+	history.push_back(snap);
+}
+
+void LinkedListState::undoState()
+{
+	if (history.empty()) return;
+
+	// Get the last snapshot and remove it from history
+	LLStateSnapshot snap = history.back();
+	history.pop_back();
+
+	// Destroy the current LL
+	clearList(); 
+
+	// Rebuild the list from the snapshot
+	for (const auto& nodeData : snap.nodes) {
+		LLNode* newNode = new LLNode{ nodeData.value, {startX, startY - 200.0f}, {0,0}, nullptr, nodeData.color };
+		if (head == nullptr) head = newNode;
+		else {
+			LLNode* temp = head;
+			while (temp->next != nullptr) temp = temp->next;
+			temp->next = newNode;
+		}
+	}
+	updateTargetPositions(); 
+
+	// Restore the UI State
+	activeCodeLine = snap.activeCodeLine;
+	currentTask = snap.currentTask;
+	searchTargetValue = snap.searchTargetValue;
+	searchTargetIndex = snap.searchTargetIndex;
+	searchCurrentIndex = snap.searchCurrentIndex;
+	
+	// Restore the Search Pointer
+	searchPointer = nullptr;
+	if (snap.searchPointerIndex != -1) {
+		LLNode* temp = head;
+		for (int i = 0; i < snap.searchPointerIndex; i++) {
+			if (temp) temp = temp->next;
+		}
+		searchPointer = temp;
+	}
+	
+	// Resume animation state
+	isAnimating = true;
+	isAnimFinished = false;
 }
 
 

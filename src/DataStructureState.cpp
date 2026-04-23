@@ -98,13 +98,14 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 			{
 				if (!isAnimFinished)
 				{
-					handleAnimationStep();
+					saveState();	// Take a snapshot
+					handleAnimationStep();	// Move to the next frame
 				}
 				stepForwardRequested = false;
 			}
 			if (stepBackwardRequested)
 			{
-				handleAnimationBackStep();
+				undoState();	// Restore the previous snapshot
 				isAnimFinished = false;
 				stepBackwardRequested = false;
 			}
