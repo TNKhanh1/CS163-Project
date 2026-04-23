@@ -36,10 +36,12 @@ protected:
 	bool isDraggingSpeedSlider;
 	float animTimer;
 	bool isAnimating;
+	bool isAnimFinished;
 
 	//Step-by-step control
 	bool isAutoPlay;
     bool stepForwardRequested;
+	bool stepBackwardRequested;
 	Rectangle zoomSliderBounds;
 	float zoomMultiplier;
 	bool isDraggingZoomSlider;
@@ -71,6 +73,7 @@ protected:
 	bool CheckStepReady(float deltaTime, float stepDuration);
 	void clearInputBuffers() { for (int i = 0; i < 5; i++) inputBuffers[i].clear(); }
 	virtual void handleAnimationStep() {} 
+	virtual void handleAnimationBackStep() {} 
 
 	// Menu drawing tools
 	void DrawSideMenuFrame(const std::vector<std::string>& labels);
