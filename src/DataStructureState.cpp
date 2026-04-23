@@ -89,6 +89,7 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		{
 			if (!isAnimFinished && CheckStepReady(deltaTime, 0.7f))
 			{
+				saveState();
 				handleAnimationStep();
 			}
 		}

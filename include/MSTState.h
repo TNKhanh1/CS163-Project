@@ -34,4 +34,14 @@ private:
     void DrawSubMenuContent() override;
     void onExecuteOp(MainOp op) override;
     void handleAnimationStep() override;
+
+    struct MSTSnapshot {
+        int animIndex;
+        int animPhase;
+        int activeCodeLine;
+    };
+    std::vector<MSTSnapshot> history;
+
+    void saveState() override;
+    void undoState() override;
 };
