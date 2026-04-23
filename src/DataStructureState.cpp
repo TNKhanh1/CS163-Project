@@ -82,33 +82,34 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		return;
 	}
 
-	// 1. Centralized Animation Trigger
-	if (isAnimating)
+	// 1. Centralized Animation & Undo Trigger
+	if (isAutoPlay)
 	{
-		if (isAutoPlay)
+		// AUTO MODE: Progress animation automatically based on timer
+		if (isAnimating && !isAnimFinished && CheckStepReady(deltaTime, 0.7f))
 		{
-			if (!isAnimFinished && CheckStepReady(deltaTime, 0.7f))
+			handleAnimationStep();
+		}
+	}
+	else 
+	{
+		// MANUAL MODE
+		if (stepForwardRequested)
+		{
+			// Only allow forward steps if an animation is actually running
+			if (isAnimating && !isAnimFinished)
 			{
+				saveState();
 				handleAnimationStep();
 			}
+			stepForwardRequested = false;
 		}
-		else
+		
+		if (stepBackwardRequested)
 		{
-			if (stepForwardRequested)
-			{
-				if (!isAnimFinished)
-				{
-					saveState();	// Take a snapshot
-					handleAnimationStep();	// Move to the next frame
-				}
-				stepForwardRequested = false;
-			}
-			if (stepBackwardRequested)
-			{
-				undoState();	// Restore the previous snapshot
-				isAnimFinished = false;
-				stepBackwardRequested = false;
-			}
+			// You can always step backwards as long as there's history, even if not currently animating
+			undoState();
+			stepBackwardRequested = false;
 		}
 	}
 
@@ -259,12 +260,18 @@ void DataStructureState::drawSharedUI()
 	}
 	
 	// 2. Next & Back Buttons (Only visible during Manual mode + Animating)
-	if (!isAutoPlay && isAnimating)
+	if (!isAutoPlay)
 	{
-		if (DrawButtonText({nextBtnX, stepY}, "Next >>", stepBtnWidth, 35, isAnimFinished))
+		// NEXT Button: Only shows up if there is an active animation
+		if (isAnimating && !isAnimFinished) 
 		{
-			stepForwardRequested = true;
+			if (DrawButtonText({nextBtnX, stepY}, "Next >>", stepBtnWidth, 35, false))
+			{
+				stepForwardRequested = true;
+			}
 		}
+
+		// BACK Button: Only shows up if there is history to go back to
 		if (DrawButtonText({backBtnX, stepY}, "<< Back", stepBtnWidth, 35, false))
 		{
 			stepBackwardRequested = true;

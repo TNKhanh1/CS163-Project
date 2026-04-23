@@ -360,19 +360,57 @@ void LinkedListState::undoState()
 	LLStateSnapshot snap = history.back();
 	history.pop_back();
 
-	// Destroy the current LL
-	clearList(); 
+	//  Update existing nodes in-place to avoid O(N^2) traversal and to preserve current Vector2 physical screen coordinates.
+	LLNode* curr = head;
+	LLNode* prev = nullptr;
+	size_t snapIndex = 0;
 
-	// Rebuild the list from the snapshot
-	for (const auto& nodeData : snap.nodes) {
-		LLNode* newNode = new LLNode{ nodeData.value, {startX, startY - 200.0f}, {0,0}, nullptr, nodeData.color };
-		if (head == nullptr) head = newNode;
-		else {
-			LLNode* temp = head;
-			while (temp->next != nullptr) temp = temp->next;
-			temp->next = newNode;
+	// Phase A: Update existing nodes
+	while (curr != nullptr && snapIndex < snap.nodes.size()) {
+		curr->value = snap.nodes[snapIndex].value;
+		curr->color = snap.nodes[snapIndex].color;
+		
+		prev = curr;
+		curr = curr->next;
+		snapIndex++;
+	}
+
+	// Phase B: Snapshot has more nodes (undid a delete operation)
+	while (snapIndex < snap.nodes.size()) {
+		LLNode* newNode = new LLNode{ 
+			snap.nodes[snapIndex].value, 
+			{startX, startY - 200.0f}, // Will be corrected by updateTargetPositions
+			{0,0}, 
+			nullptr, 
+			snap.nodes[snapIndex].color 
+		};
+		
+		if (prev == nullptr) {
+			head = newNode;
+		} else {
+			prev->next = newNode;
+		}
+		prev = newNode;
+		snapIndex++;
+	}
+
+	// Phase C: Snapshot has fewer nodes (undid an insert operation)
+	if (curr != nullptr) {
+		if (prev == nullptr) {
+			head = nullptr; // The snapshot was completely empty
+		} else {
+			prev->next = nullptr; // Sever the tie to the excess nodes
+		}
+		
+		// Safely delete the abandoned excess nodes
+		while (curr != nullptr) {
+			LLNode* temp = curr->next;
+			delete curr;
+			curr = temp;
 		}
 	}
+
+	// Recalculate where everything is
 	updateTargetPositions(); 
 
 	// Restore the UI State
