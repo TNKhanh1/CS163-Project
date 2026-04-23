@@ -19,6 +19,7 @@ HeapState::HeapState() : DataStructureState()
     animUpdateValue = -1;
     updateHeapifyUp = false;
     insertAnimPhase = 0;
+    extractAnimPhase = 0;
     activeCodeLine = -1;
     previousZoomMultiplier = 1.0f;
 
@@ -88,7 +89,7 @@ void HeapState::update(float deltaTime)
         visualNodes[i].position = Vector2Lerp(
             visualNodes[i].position, 
             visualNodes[i].targetPosition, 
-            deltaTime * 8.0f // Có thể nhân thêm animSpeedMultiplier nếu muốn nhanh hơn
+            deltaTime * 8.0f 
         );
     }
 }
@@ -312,6 +313,7 @@ void HeapState::startAnimation(HeapTask task, int val1, int val2)
             "    return root;",
             "}"
         };
+        extractAnimPhase = 0;
         animCurrentIdx = 0; // Sẽ xử lý trong handleAnimationStep
     }
     else if (task == HEAP_TASK_UPDATE) {
@@ -342,6 +344,12 @@ void HeapState::startAnimation(HeapTask task, int val1, int val2)
 
 void HeapState::handleAnimationStep()
 {
+    // Safeguard: Nếu animation không active, reset màu và return
+    if (currentTask == HEAP_TASK_NONE) {
+        resetNodeColors();
+        return;
+    }
+
     // Tìm kiếm: Duyệt qua toàn bộ mảng
     if (currentTask == HEAP_TASK_SEARCH) {
         resetNodeColors();
@@ -365,6 +373,7 @@ void HeapState::handleAnimationStep()
             currentErrorSlot = 2;
             isAnimating = false;
             currentTask = HEAP_TASK_NONE;
+            resetNodeColors();
         }
     }
     // Thêm (Insert): Heapify Up từ dưới lên
@@ -385,6 +394,7 @@ void HeapState::handleAnimationStep()
                     activeCodeLine = -1;
                     isAnimating = false;
                     currentTask = HEAP_TASK_NONE;
+                    resetNodeColors(); // Reset màu trước khi kết thúc
                     syncVisualNodes(); // Đồng bộ lại 1 lần cuối cho chắc chắn
                 }
             } else if (insertAnimPhase == 1) {
@@ -403,15 +413,116 @@ void HeapState::handleAnimationStep()
             isAnimating = false;
             currentTask = HEAP_TASK_NONE;
             syncVisualNodes();
+            resetNodeColors();
         }
     }
-    // Xóa (Extract) và Update: Xử lý tức thì sau đó đồng bộ (Có thể mở rộng logic chi tiết nếu cần)
+    // Xóa (Extract): Heapify Down từ trên xuống
     else if (currentTask == HEAP_TASK_EXTRACT) {
-        activeCodeLine = 4; // heapifyDown
-        heap.extractTop();
-        syncVisualNodes();
-        isAnimating = false;
-        currentTask = HEAP_TASK_NONE;
+        resetNodeColors();
+        
+        if (heap.isEmpty()) {
+            activeCodeLine = -1;
+            isAnimating = false;
+            currentTask = HEAP_TASK_NONE;
+            resetNodeColors();
+            return;
+        }
+
+        int heapSize = (int)visualNodes.size();
+        
+        if (extractAnimPhase == 0) {
+            // Phase 0: Highlight root for extraction
+            activeCodeLine = 1; // int root = data[0]
+            visualNodes[0].color = ORANGE;
+            extractAnimPhase = 1;
+        } else if (extractAnimPhase == 1) {
+            // Phase 1: Move last element to root
+            activeCodeLine = 2; // data[0] = data.back()
+            if (heapSize > 1) {
+                visualNodes[heapSize - 1].color = YELLOW;
+                visualNodes[0].color = YELLOW;
+            }
+            extractAnimPhase = 2;
+        } else if (extractAnimPhase == 2) {
+            // Phase 2: Remove last element (pop_back)
+            activeCodeLine = 3; // data.pop_back()
+            if (heapSize > 1) {
+                // Move last element to root
+                visualNodes[0].value = visualNodes[heapSize - 1].value;
+                visualNodes.pop_back();
+                updateTargetPositions(); // Update positions after removing node
+            } else {
+                // Only 1 element, just remove it
+                visualNodes.pop_back();
+                activeCodeLine = -1;
+                isAnimating = false;
+                currentTask = HEAP_TASK_NONE;
+                extractAnimPhase = 0;
+                resetNodeColors();
+                // Update heap data
+                std::vector<int> heapData;
+                for (auto& node : visualNodes) {
+                    heapData.push_back(node.value);
+                }
+                heap.buildHeap(heapData);
+                return;
+            }
+            animCurrentIdx = 0; // Start heapify from root
+            extractAnimPhase = 3;
+        } else if (extractAnimPhase >= 3) {
+            // Phase 3+: Heapify down process
+            activeCodeLine = 4; // heapifyDown(0)
+            
+            int size = (int)visualNodes.size();
+            if (animCurrentIdx >= size) {
+                activeCodeLine = -1;
+                isAnimating = false;
+                currentTask = HEAP_TASK_NONE;
+                extractAnimPhase = 0;
+                resetNodeColors();
+                // Update heap data
+                std::vector<int> heapData;
+                for (auto& node : visualNodes) {
+                    heapData.push_back(node.value);
+                }
+                heap.buildHeap(heapData);
+                return;
+            }
+
+            visualNodes[animCurrentIdx].color = YELLOW;
+            
+            int leftIdx = animCurrentIdx * 2 + 1;
+            int rightIdx = animCurrentIdx * 2 + 2;
+            int smallest = animCurrentIdx;
+
+            if (leftIdx < size && visualNodes[leftIdx].value < visualNodes[smallest].value) {
+                smallest = leftIdx;
+            }
+            if (rightIdx < size && visualNodes[rightIdx].value < visualNodes[smallest].value) {
+                smallest = rightIdx;
+            }
+
+            if (smallest != animCurrentIdx) {
+                visualNodes[smallest].color = YELLOW;
+                visualNodes[animCurrentIdx].color = GREEN;
+                visualNodes[smallest].color = GREEN;
+                std::swap(visualNodes[animCurrentIdx].value, visualNodes[smallest].value);
+                updateTargetPositions(); // Update positions after swap
+                animCurrentIdx = smallest;
+            } else {
+                activeCodeLine = -1;
+                isAnimating = false;
+                currentTask = HEAP_TASK_NONE;
+                extractAnimPhase = 0;
+                resetNodeColors();
+                // Update heap data
+                std::vector<int> heapData;
+                for (auto& node : visualNodes) {
+                    heapData.push_back(node.value);
+                }
+                heap.buildHeap(heapData);
+            }
+        }
     }
     else if (currentTask == HEAP_TASK_UPDATE) {
         resetNodeColors();
@@ -422,6 +533,7 @@ void HeapState::handleAnimationStep()
             activeCodeLine = -1;
             isAnimating = false;
             currentTask = HEAP_TASK_NONE;
+            resetNodeColors();
             return;
         }
 
@@ -446,11 +558,13 @@ void HeapState::handleAnimationStep()
                     activeCodeLine = -1;
                     isAnimating = false;
                     currentTask = HEAP_TASK_NONE;
+                    resetNodeColors();
                 }
             } else {
                 activeCodeLine = -1;
                 isAnimating = false;
                 currentTask = HEAP_TASK_NONE;
+                resetNodeColors();
             }
         } else {
             int size = heap.getSize();
@@ -476,6 +590,7 @@ void HeapState::handleAnimationStep()
                 activeCodeLine = -1;
                 isAnimating = false;
                 currentTask = HEAP_TASK_NONE;
+                resetNodeColors();
             }
         }
     }

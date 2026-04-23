@@ -46,6 +46,7 @@ private:
     int animUpdateValue;
     bool updateHeapifyUp;
     int insertAnimPhase;
+    int extractAnimPhase;
     int activeCodeLine;
     float previousZoomMultiplier;
 
