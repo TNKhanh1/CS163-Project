@@ -16,7 +16,7 @@ struct Node {
 
     Vector2 position;
     Vector2 targetPosition;
-    Color color;
+    Color color = SKYBLUE;
 
     int key;
     Node* left;

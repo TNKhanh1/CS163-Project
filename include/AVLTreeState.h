@@ -36,6 +36,9 @@ private:
     const int TASK_HIGHLIGHT_NEW = 1;
     const int TASK_TRAVERSE_INSERT = 2;
     const int TASK_WAIT_FOR_BALANCE = 3;
+    const int TASK_TRAVERSE_SEARCH = 4;
+    const int TASK_TRAVERSE_DELETE = 5;
+    const int TASK_HIGHLIGHT_FOR_DELETE = 6;
     
     // Animation & Traversal State
     int currentTask; // Matches LinkedList's TASK_NONE, TASK_SEARCH, etc.
