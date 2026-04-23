@@ -2,6 +2,8 @@
 #include "DataStructureState.h"
 #include "State.h"
 #include "MST.h"
+#include <vector>
+#include <string>
 
 class MSTState : public DataStructureState
 {
@@ -19,13 +21,13 @@ private:
     int activeInputFocus;
     int previousInputFocus;
 
-
-
-
-    std::map<int, Vector2> nodePositions; // Lưu vị trí các đỉnh trên màn hình
-    std::vector<Edge> targetMST;          // Lưu kết quả Kruskal/Prim
+    std::map<int, Vector2> nodePositions; 
+    std::vector<Edge> targetMST;          
     int currentAnimIndex;                 
     enum AnimType { NONE, KRUSKAL, PRIM } currentAnimType;
+    int animPhase;
+    std::vector<std::string> pseudoCode;
+    int activeCodeLine;
 
     void updateNodePositions();           
     

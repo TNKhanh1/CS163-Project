@@ -12,11 +12,21 @@ MSTState::MSTState() : DataStructureState()
 
     currentAnimIndex = 0;
     currentAnimType = NONE;
+
+    // Khởi tạo trạng thái ban đầu của mã giả
+    animPhase = 0;
+    activeCodeLine = -1;
+    pseudoCode = {
+        "// Select an algorithm from",
+        "// the control panel to see",
+        "// its execution step-by-step."
+    };
 }
 
 MSTState::~MSTState()
 {
     currentGraph.clear();
+    pseudoCode.clear();
 }
 
 void MSTState::loadAssets()
@@ -38,7 +48,7 @@ void MSTState::updateNodePositions()
     float angleStep = 2.0f * PI / numNodes;
     float angle = 0.0f;
 
-    Vector2 center = {1800.0f / 2.0f, 1000.0f / 2.0f - 50.0f};
+    Vector2 center = {1800.0f / 2.0f - 150.0f, 1000.0f / 2.0f - 50.0f};
     float radius = 300.0f * zoomMultiplier;
 
     nodePositions.clear();
@@ -100,20 +110,36 @@ void MSTState::onExecuteOp(MainOp op)
                 isAnimating = false;
                 currentAnimType = NONE;
                 targetMST.clear();
+                activeCodeLine = -1;
                 break;
             }
 
-            case OP_SLOT3:
+            case OP_SLOT3: // KRUSKAL
             {
                 targetMST = currentGraph.kruskal();
                 currentAnimIndex = 0;
                 currentAnimType = KRUSKAL;
                 isAnimating = true;
                 animTimer = 0.0f;
+                animPhase = 0;      // Reset phase
+                activeCodeLine = 1;
+
+                pseudoCode = {
+                    "vector<Edge> kruskal() {",
+                    "    sort(edges);",
+                    "    for (Edge e : edges) {",
+                    "        if (find(e.u) != find(e.v)) {",
+                    "            union(e.u, e.v);",
+                    "            mst.push_back(e);",
+                    "        }",
+                    "    }",
+                    "    return mst;",
+                    "}"
+                };
                 break;
             }
 
-            case OP_SLOT4:
+            case OP_SLOT4: // PRIM
             {
                 if (!inputBuffers[3].empty())
                 {
@@ -123,7 +149,24 @@ void MSTState::onExecuteOp(MainOp op)
                     currentAnimType = PRIM;
                     isAnimating = true;
                     animTimer = 0.0f;
+                    animPhase = 0;      // Reset phase
+                    activeCodeLine = 1; 
                     inputBuffers[3].clear();
+
+                    pseudoCode = {
+                        "vector<Edge> prim(int start) {",
+                        "    pq.push(edges_from(start));",
+                        "    while (!pq.empty()) {",
+                        "        Edge e = pq.pop();",
+                        "        if (!visited(e.v)) {",
+                        "            mst.push_back(e);",
+                        "            visited(e.v) = true;",
+                        "            pq.push(edges_from(e.v));",
+                        "        }",
+                        "    }",
+                        "    return mst;",
+                        "}"
+                    };
                 }
                 break;
             }
@@ -145,13 +188,52 @@ void MSTState::onExecuteOp(MainOp op)
 
 void MSTState::handleAnimationStep()
 {
-    if (currentAnimType != NONE && currentAnimIndex < (int)targetMST.size())
+    if (currentAnimType == KRUSKAL)
     {
-        currentAnimIndex++;
+        if (currentAnimIndex < (int)targetMST.size())
+        {
+            // Chạy từng dòng code của Kruskal
+            if (animPhase == 0) { activeCodeLine = 2; animPhase = 1; }      // Dòng: for (Edge e : edges)
+            else if (animPhase == 1) { activeCodeLine = 3; animPhase = 2; } // Dòng: if (find != find)
+            else if (animPhase == 2) { activeCodeLine = 4; animPhase = 3; } // Dòng: union
+            else if (animPhase == 3) { 
+                activeCodeLine = 5;                                         // Dòng: mst.push_back(e)
+                currentAnimIndex++; // Thực sự vẽ cạnh lên đồ thị
+                animPhase = 0;      // Quay lại vòng lặp cho cạnh tiếp theo
+            }
+        }
+        else
+        {
+            activeCodeLine = 8; // Dòng: return mst;
+            isAnimating = false;
+        }
+    }
+    else if (currentAnimType == PRIM)
+    {
+        if (currentAnimIndex < (int)targetMST.size())
+        {
+            // Chạy từng dòng code của Prim
+            if (animPhase == 0) { activeCodeLine = 2; animPhase = 1; }      // Dòng: while (!pq.empty())
+            else if (animPhase == 1) { activeCodeLine = 3; animPhase = 2; } // Dòng: Edge e = pq.pop()
+            else if (animPhase == 2) { activeCodeLine = 4; animPhase = 3; } // Dòng: if (!visited)
+            else if (animPhase == 3) { 
+                activeCodeLine = 5;                                         // Dòng: mst.push_back(e)
+                currentAnimIndex++; // Thực sự vẽ cạnh lên đồ thị
+                animPhase = 4; 
+            }
+            else if (animPhase == 4) { activeCodeLine = 6; animPhase = 5; } // Dòng: visited = true
+            else if (animPhase == 5) { activeCodeLine = 7; animPhase = 0; } // Dòng: pq.push(edges)
+        }
+        else
+        {
+            activeCodeLine = 10; // Dòng: return mst;
+            isAnimating = false;
+        }
     }
     else
     {
         isAnimating = false;
+        activeCodeLine = -1;
     }
 }
 
@@ -364,6 +446,37 @@ void MSTState::draw()
         DrawTextEx(numberFont, vText, {pos.x - textSize.x / 2.0f, pos.y - textSize.y / 2.0f}, fontSize, 1.0f, BLACK);
     }
 
+    float pcX = 1315.0f, pcY = 150.0f;
+    float pcWidth = 450.0f, pcHeight = 450.0f;
+    DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
+    DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
+    DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
+    
+    float lineHeight = 28.0f;
+    float textPadding = 15.0f;
+    for (int i = 0; i < (int)pseudoCode.size(); i++) {
+        Color textCol = BLACK;
+        if (i == activeCodeLine) {
+            DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
+            textCol = RED;
+        }
+        
+        std::string line = pseudoCode[i];
+        if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
+            size_t spacePos = line.find_last_of(' ', 60);
+            if (spacePos != std::string::npos) {
+                std::string first = line.substr(0, spacePos);
+                std::string second = line.substr(spacePos + 1);
+                DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+                DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
+            } else {
+                DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+            }
+        } else {
+            DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+        }
+    }
+    
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Create", "Insert", "Kruskal", "Prim"});
 }

@@ -40,7 +40,6 @@ protected:
 	//Step-by-step control
 	bool isAutoPlay;
     bool stepForwardRequested;
-
 	Rectangle zoomSliderBounds;
 	float zoomMultiplier;
 	bool isDraggingZoomSlider;
