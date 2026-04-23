@@ -88,6 +88,7 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		// AUTO MODE: Progress animation automatically based on timer
 		if (isAnimating && !isAnimFinished && CheckStepReady(deltaTime, 0.7f))
 		{
+			saveState();
 			handleAnimationStep();
 		}
 	}
