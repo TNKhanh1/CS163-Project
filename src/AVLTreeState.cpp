@@ -61,6 +61,11 @@ AVLTreeState::AVLTreeState() : DataStructureState()
     previousInputFocus = -1;
 
     avl = new AVLTree();
+    currentTask = TASK_NONE;
+    pCode = 0;
+    activeCodeLine = -1;
+    searchPointer = nullptr;
+    animTimer = 0.0f;
 }
 
 AVLTreeState::~AVLTreeState()
@@ -91,265 +96,46 @@ void AVLTreeState::update(float deltaTime)
         HandleTextInput(inputBuffers[activeInputFocus], false);
     }
 
+    if (currentTask != TASK_NONE) {
+        
+        bool stepTriggered = false;
+
+        if (isAutoPlay) {
+            // AUTO MODE: Timer handles the trigger
+            animTimer -= deltaTime;
+            if (animTimer <= 0.0f) {
+                stepTriggered = true;
+                animTimer = 0.5f; // Reset for next frame
+            }
+        } else {
+            // MANUAL MODE: UI Buttons handle the trigger
+            // (Assuming you have UI buttons drawn elsewhere that set these flags)
+            if (stepForwardRequested) {
+                stepTriggered = true;
+                stepForwardRequested = false;
+            }
+            if (stepBackwardRequested) {
+                undoState(); 
+                stepBackwardRequested = false;
+            }
+        }
+
+        // ROUTE THE TRIGGER: Call the correct helper function
+        if (stepTriggered) {
+            switch (currentTask) {
+                case TASK_TRAVERSE_INSERT:   stepTraverseInsert(); break;
+                case TASK_TRAVERSE_SEARCH:   stepTraverseSearch(); break;
+                case TASK_TRAVERSE_DELETE:   stepTraverseDelete(); break;
+                case TASK_HIGHLIGHT_NEW:     stepHighlightNew(); break;
+                case TASK_HIGHLIGHT_FOR_DELETE: stepHighlightForDelete(); break;
+                case TASK_WAIT_FOR_BALANCE:  stepWaitForBalance(); break;
+            }
+        }
+    }
+
     // Calculate perfect target coordinates before gliding them
     updateTargetLayouts(const_cast<Node*>(avl->rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
     updateNodePositions(const_cast<Node*>(avl->rootCall()), deltaTime);
-
-    if (currentTask == TASK_TRAVERSE_INSERT) {
-        animTimer -= deltaTime;
-        
-        if (animTimer <= 0.0f) {
-            if (activeCodeLine == 0) {
-                    if (searchTargetValue < searchPointer->key) {
-                        activeCodeLine = 3; // Highlight "node->left = insert(...)"
-                        animTimer = 0.5f;
-                    } 
-                    else if (searchTargetValue > searchPointer->key) {
-                        activeCodeLine = 5; // Highlight "node->right = insert(...)"
-                        animTimer = 0.5f;
-                    }
-                    else {
-                        // Duplicate found (cancel insertion)
-                        const_cast<Node*>(searchPointer)->color = SKYBLUE;
-                        currentTask = TASK_NONE;
-                        activeCodeLine = -1;
-                    }
-                }
-                else if (activeCodeLine == 3 || activeCodeLine == 5) {
-                    
-                    // Reset current node color
-                    const_cast<Node*>(searchPointer)->color = SKYBLUE; 
-
-                    if (searchTargetValue < searchPointer->key) {
-                        if (searchPointer->left != nullptr) {
-                            // Jump to the left child!
-                            searchPointer = searchPointer->left;
-                            const_cast<Node*>(searchPointer)->color = YELLOW;
-                            activeCodeLine = 0; // Loop back to the function signature!
-                            animTimer = 0.5f;
-                        } else {
-                            // Reached the bottom, insert it!
-                            activeCodeLine = 0; // Loop back to the function signature!
-                            animTimer = 0.5f;
-                            currentTask = TASK_HIGHLIGHT_NEW;
-                        }
-                    } 
-                    else if (searchTargetValue > searchPointer->key) {
-                        if (searchPointer->right != nullptr) {
-                            // Jump to the right child!
-                            searchPointer = searchPointer->right;
-                            const_cast<Node*>(searchPointer)->color = YELLOW;
-                            activeCodeLine = 0; // Loop back to the function signature!
-                            animTimer = 0.5f;
-                        } else {
-                            // Reached the bottom, insert it!
-                            activeCodeLine = 0; // Loop back to the function signature!
-                            animTimer = 0.5f;
-                            currentTask = TASK_HIGHLIGHT_NEW;
-                        }
-                    }
-                }
-        }
-    }
-
-    if (currentTask == TASK_TRAVERSE_SEARCH) {
-        animTimer -= deltaTime;
-        
-        if (animTimer <= 0.0f) {
-            if (activeCodeLine == 0) {
-                // Check if we found the node or if it's NULL
-                if (searchTargetValue == searchPointer->key) {
-                    // Found it!
-                    const_cast<Node*>(searchPointer)->color = GREEN;
-                    currentTask = TASK_NONE;
-                    activeCodeLine = 2; // Highlight "return node;"
-                    animTimer = 0.0f;
-                }
-                else if (searchTargetValue < searchPointer->key) {
-                    activeCodeLine = 4; // Highlight "return search(node->left, key);"
-                    animTimer = 0.5f;
-                } 
-                else if (searchTargetValue > searchPointer->key) {
-                    activeCodeLine = 5; // Highlight "return search(node->right, key);"
-                    animTimer = 0.5f;
-                }
-            }
-            else if (activeCodeLine == 4 || activeCodeLine == 5) {
-                // Reset current node color
-                const_cast<Node*>(searchPointer)->color = SKYBLUE; 
-
-                if (searchTargetValue < searchPointer->key) {
-                    if (searchPointer->left != nullptr) {
-                        // Jump to the left child!
-                        searchPointer = searchPointer->left;
-                        const_cast<Node*>(searchPointer)->color = YELLOW;
-                        activeCodeLine = 0; // Loop back to the function signature!
-                        animTimer = 0.5f;
-                    } else {
-                        // Not found!
-                        currentErrorSlot = 3;
-                        inputErrorMsg = "Value not found!";
-                        inputErrorTimer = 2.5f;
-                        currentTask = TASK_NONE;
-                        activeCodeLine = -1;
-                    }
-                } 
-                else if (searchTargetValue > searchPointer->key) {
-                    if (searchPointer->right != nullptr) {
-                        // Jump to the right child!
-                        searchPointer = searchPointer->right;
-                        const_cast<Node*>(searchPointer)->color = YELLOW;
-                        activeCodeLine = 0; // Loop back to the function signature!
-                        animTimer = 0.5f;
-                    } else {
-                        // Not found!
-                        currentErrorSlot = 3;
-                        inputErrorMsg = "Value not found!";
-                        inputErrorTimer = 2.5f;
-                        currentTask = TASK_NONE;
-                        activeCodeLine = -1;
-                    }
-                }
-            }
-        }
-    }
-
-    if (currentTask == TASK_TRAVERSE_DELETE) {
-        animTimer -= deltaTime;
-        
-        if (animTimer <= 0.0f) {
-            if (activeCodeLine == 0) {
-                // Check if we found the node
-                if (searchTargetValue == searchPointer->key) {
-                    // Found it! Highlight it and proceed to deletion
-                    const_cast<Node*>(searchPointer)->color = GREEN;
-                    currentTask = TASK_HIGHLIGHT_FOR_DELETE;
-                    activeCodeLine = 6; // Highlight the "else { /* Delete... */" line
-                    animTimer = 0.5f;
-                }
-                else if (searchTargetValue < searchPointer->key) {
-                    activeCodeLine = 3; // Highlight "node->left = deleteNode(...)"
-                    animTimer = 0.5f;
-                } 
-                else if (searchTargetValue > searchPointer->key) {
-                    activeCodeLine = 5; // Highlight "node->right = deleteNode(...)"
-                    animTimer = 0.5f;
-                }
-            }
-            else if (activeCodeLine == 3 || activeCodeLine == 5) {
-                // Reset current node color
-                const_cast<Node*>(searchPointer)->color = SKYBLUE; 
-
-                if (searchTargetValue < searchPointer->key) {
-                    if (searchPointer->left != nullptr) {
-                        // Jump to the left child!
-                        searchPointer = searchPointer->left;
-                        const_cast<Node*>(searchPointer)->color = YELLOW;
-                        activeCodeLine = 0; // Loop back to the function signature!
-                        animTimer = 0.5f;
-                    } else {
-                        // Not found!
-                        currentErrorSlot = 2;
-                        inputErrorMsg = "Value not found!";
-                        inputErrorTimer = 2.5f;
-                        currentTask = TASK_NONE;
-                        activeCodeLine = -1;
-                    }
-                } 
-                else if (searchTargetValue > searchPointer->key) {
-                    if (searchPointer->right != nullptr) {
-                        // Jump to the right child!
-                        searchPointer = searchPointer->right;
-                        const_cast<Node*>(searchPointer)->color = YELLOW;
-                        activeCodeLine = 0; // Loop back to the function signature!
-                        animTimer = 0.5f;
-                    } else {
-                        // Not found!
-                        currentErrorSlot = 2;
-                        inputErrorMsg = "Value not found!";
-                        inputErrorTimer = 2.5f;
-                        currentTask = TASK_NONE;
-                        activeCodeLine = -1;
-                    }
-                }
-            }
-        }
-    }
-
-    if (currentTask == TASK_HIGHLIGHT_FOR_DELETE) {
-        animTimer -= deltaTime;
-        
-        if (animTimer <= 0.0f) {
-            // Time to delete the node
-            avl->delNode(searchTargetValue);
-            
-            // Move to balancing phase
-            currentTask = TASK_WAIT_FOR_BALANCE;
-            animTimer = 0.5f;
-        }
-    }
-
-    if (currentTask == TASK_HIGHLIGHT_NEW) {
-        animTimer -= deltaTime; // Tick down the clock
-        
-        if (animTimer <= 0.0f) {
-            // Time is up! Reset the colors and clear the task.
-            if (activeCodeLine == 0) {
-                // We just highlighted the signature. Now highlight the base case!
-                activeCodeLine = 1; // "if (node == NULL) return new Node(key);"
-                animTimer = 0.5f;
-            } 
-            else if (activeCodeLine == 1) {
-                // Time to actually insert the node into the backend!
-                avl->insert(searchTargetValue);
-                
-                // Find it and color it green
-                const Node* newObj = avl->search(searchTargetValue);
-                if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
-                
-                // Move on to balancing
-                currentTask = TASK_WAIT_FOR_BALANCE;
-                animTimer = 0.5f;
-            }
-        }
-    }
-    if (currentTask == TASK_WAIT_FOR_BALANCE) {
-        animTimer -= deltaTime;
-        
-        if (animTimer <= 0.0f) {
-            // If we just showed the function signature, now highlight the swap
-            if (activeCodeLine == 0) {
-                activeCodeLine = -1;
-                animTimer = 0.5f;
-            } 
-            else {
-                // Try to do exactly ONE rotation.
-                int didRotate = avl->balance();
-                
-                if (didRotate != 0) {
-                    // A rotation happened! Show the function signature first
-                    if (didRotate == 1 || didRotate == 4) {
-                        pCode = 4;
-                        activeCodeLine = 0; // Highlight function signature first
-                        animTimer = 0.5f;
-                    }
-                    // If we did a LEFT rotate (RR Case, or first half of LR Case)
-                    else if (didRotate == 2 || didRotate == 3) {
-                        pCode = 5;
-                        activeCodeLine = 0; // Highlight function signature first
-                        animTimer = 0.5f;
-                    }
-                } 
-                else {
-                    // Tree is completely balanced! Clear task and reset the code box.
-                    currentTask = TASK_NONE;
-                    animTimer = 0.0f;
-                    pCode = 6;
-                    activeCodeLine = -1; // Turn off highlight
-                }
-            }
-        }
-    }
 }
 
 void AVLTreeState::draw()
@@ -515,15 +301,24 @@ void AVLTreeState::DrawSubMenuContent()
 
 void AVLTreeState::onExecuteOp(MainOp op)
 {
-    snapHistory.clear();
+    while (currentTask != TASK_NONE) {
+        handleAnimationStep();
+    }
+
     if (op == OP_SLOT4) {
         // 1. Wipe the tree data
         if (avl != nullptr) avl->clear();
         pCode = 0;
         activeCodeLine = -1;
+        for (auto& snap : snapHistory) {
+            delete snap.treeCopy;
+        }
+        snapHistory.clear();
 
         // 2. Reset the visualizer states so it doesn't look for nodes that no longer exist
         currentTask = TASK_NONE;
+        isAnimating = false;
+        isAnimFinished = true;
         animTimer = 0.0f;
 
         // 3. Clear any error messages or active inputs
@@ -555,6 +350,7 @@ void AVLTreeState::onExecuteOp(MainOp op)
         
         // 5. Reset the visualizer states
         currentTask = TASK_NONE;
+        isAnimating = false;
         animTimer = 0.0f;
         pCode = 7;
         activeCodeLine = -1;
@@ -630,6 +426,9 @@ void AVLTreeState::onExecuteOp(MainOp op)
     else if (op == OP_SLOT2) id = 2;
     else if (op == OP_SLOT3) id = 3;
     int value = std::stoi(inputBuffers[id]);
+        
+    isAnimating = true;
+    isAnimFinished = false;
 
     if (op == OP_SLOT1) { // OP_INSERT
         pCode = 1;
@@ -703,6 +502,7 @@ void AVLTreeState::saveState() {
     snap.activeCodeLine = activeCodeLine;
     snap.searchTargetValue = searchTargetValue;
     snap.pCode     = pCode;
+    snap.searchPointerKey = (searchPointer != nullptr) ? searchPointer->key : -9999;
 
     // Deep copy the tree using your existing copyTree()
     snap.treeCopy = new AVLTree();
@@ -729,8 +529,8 @@ void AVLTreeState::undoState() {
     pCode         = snap.pCode;
 
     // Restore searchPointer to the correct node in the restored tree
-    if (currentTask != TASK_NONE) {
-        searchPointer = avl->search(searchTargetValue);
+    if (currentTask != TASK_NONE&& snap.searchPointerKey != -9999) {
+        searchPointer = avl->search(snap.searchPointerKey);
     } else {
         searchPointer = nullptr;
     }
@@ -750,15 +550,243 @@ void AVLTreeState::handleAnimationStep() {
     else {
         isAnimating    = false;
         isAnimFinished = true;
+        currentTask    = TASK_NONE;
     }
 }
 
-void AVLTreeState::stepTraverseInsert() {}
-void AVLTreeState::stepTraverseSearch() {}
-void AVLTreeState::stepTraverseDelete() {}
-void AVLTreeState::stepHighlightNew() {}
-void AVLTreeState::stepHighlightForDelete() {}
-void AVLTreeState::stepWaitForBalance() {}
+void AVLTreeState::stepTraverseInsert() {
+    saveState();
+    if (activeCodeLine == 0) {
+        if (searchTargetValue < searchPointer->key) {
+            activeCodeLine = 3; // Highlight "node->left = insert(...)"
+            animTimer = 0.5f;
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            activeCodeLine = 5; // Highlight "node->right = insert(...)"
+            animTimer = 0.5f;
+        }
+        else {
+            // Duplicate found (cancel insertion)
+            const_cast<Node*>(searchPointer)->color = SKYBLUE;
+            currentTask = TASK_NONE;
+            activeCodeLine = -1;
+        }
+    }
+    else if (activeCodeLine == 3 || activeCodeLine == 5) {
+        
+        // Reset current node color
+        const_cast<Node*>(searchPointer)->color = SKYBLUE; 
+
+        if (searchTargetValue < searchPointer->key) {
+            if (searchPointer->left != nullptr) {
+                // Jump to the left child!
+                searchPointer = searchPointer->left;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+            } else {
+                // Reached the bottom, insert it!
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+                currentTask = TASK_HIGHLIGHT_NEW;
+            }
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            if (searchPointer->right != nullptr) {
+                // Jump to the right child!
+                searchPointer = searchPointer->right;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+            } else {
+                // Reached the bottom, insert it!
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+                currentTask = TASK_HIGHLIGHT_NEW;
+            }
+        }
+    }
+}
+void AVLTreeState::stepTraverseSearch() {
+    saveState();
+    if (activeCodeLine == 0) {
+        // Check if we found the node or if it's NULL
+        if (searchTargetValue == searchPointer->key) {
+            // Found it!
+            const_cast<Node*>(searchPointer)->color = GREEN;
+            currentTask = TASK_NONE;
+            activeCodeLine = 2; // Highlight "return node;"
+            animTimer = 0.0f;
+        }
+        else if (searchTargetValue < searchPointer->key) {
+            activeCodeLine = 4; // Highlight "return search(node->left, key);"
+            animTimer = 0.5f;
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            activeCodeLine = 5; // Highlight "return search(node->right, key);"
+            animTimer = 0.5f;
+        }
+    }
+    else if (activeCodeLine == 4 || activeCodeLine == 5) {
+        // Reset current node color
+        const_cast<Node*>(searchPointer)->color = SKYBLUE; 
+
+        if (searchTargetValue < searchPointer->key) {
+            if (searchPointer->left != nullptr) {
+                // Jump to the left child!
+                searchPointer = searchPointer->left;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+            } else {
+                // Not found!
+                currentErrorSlot = 3;
+                inputErrorMsg = "Value not found!";
+                inputErrorTimer = 2.5f;
+                currentTask = TASK_NONE;
+                activeCodeLine = -1;
+            }
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            if (searchPointer->right != nullptr) {
+                // Jump to the right child!
+                searchPointer = searchPointer->right;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+            } else {
+                // Not found!
+                currentErrorSlot = 3;
+                inputErrorMsg = "Value not found!";
+                inputErrorTimer = 2.5f;
+                currentTask = TASK_NONE;
+                activeCodeLine = -1;
+            }
+        }
+    }
+}
+void AVLTreeState::stepTraverseDelete() {
+    saveState();
+    if (activeCodeLine == 0) {
+        // Check if we found the node
+        if (searchTargetValue == searchPointer->key) {
+            // Found it! Highlight it and proceed to deletion
+            const_cast<Node*>(searchPointer)->color = GREEN;
+            currentTask = TASK_HIGHLIGHT_FOR_DELETE;
+            activeCodeLine = 6; // Highlight the "else { /* Delete... */" line
+            animTimer = 0.5f;
+        }
+        else if (searchTargetValue < searchPointer->key) {
+            activeCodeLine = 3; // Highlight "node->left = deleteNode(...)"
+            animTimer = 0.5f;
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            activeCodeLine = 5; // Highlight "node->right = deleteNode(...)"
+            animTimer = 0.5f;
+        }
+    }
+    else if (activeCodeLine == 3 || activeCodeLine == 5) {
+        // Reset current node color
+        const_cast<Node*>(searchPointer)->color = SKYBLUE; 
+
+        if (searchTargetValue < searchPointer->key) {
+            if (searchPointer->left != nullptr) {
+                // Jump to the left child!
+                searchPointer = searchPointer->left;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+            } else {
+                // Not found!
+                currentErrorSlot = 2;
+                inputErrorMsg = "Value not found!";
+                inputErrorTimer = 2.5f;
+                currentTask = TASK_NONE;
+                activeCodeLine = -1;
+            }
+        } 
+        else if (searchTargetValue > searchPointer->key) {
+            if (searchPointer->right != nullptr) {
+                // Jump to the right child!
+                searchPointer = searchPointer->right;
+                const_cast<Node*>(searchPointer)->color = YELLOW;
+                activeCodeLine = 0; // Loop back to the function signature!
+                animTimer = 0.5f;
+            } else {
+                // Not found!
+                currentErrorSlot = 2;
+                inputErrorMsg = "Value not found!";
+                inputErrorTimer = 2.5f;
+                currentTask = TASK_NONE;
+                activeCodeLine = -1;
+            }
+        }
+    }
+}
+void AVLTreeState::stepHighlightNew() {
+    saveState();
+    // Time is up! Reset the colors and clear the task.
+    if (activeCodeLine == 0) {
+        // We just highlighted the signature. Now highlight the base case!
+        activeCodeLine = 1; // "if (node == NULL) return new Node(key);"
+        animTimer = 0.5f;
+    } 
+    else if (activeCodeLine == 1) {
+        // Time to actually insert the node into the backend!
+        avl->insert(searchTargetValue);
+        
+        // Find it and color it green
+        const Node* newObj = avl->search(searchTargetValue);
+        if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
+        
+        // Move on to balancing
+        currentTask = TASK_WAIT_FOR_BALANCE;
+        animTimer = 0.5f;
+    }
+}
+void AVLTreeState::stepHighlightForDelete() {
+    saveState();
+    // Time to delete the node
+    avl->delNode(searchTargetValue);
+    
+    // Move to balancing phase
+    currentTask = TASK_WAIT_FOR_BALANCE;
+    animTimer = 0.5f;
+}
+void AVLTreeState::stepWaitForBalance() {
+    saveState();
+    // If we just showed the function signature, now highlight the swap
+    if (activeCodeLine == 0) {
+        activeCodeLine = -1;
+        animTimer = 0.5f;
+    } 
+    else {
+        // Try to do exactly ONE rotation.
+        int didRotate = avl->balance();
+        
+        if (didRotate != 0) {
+            // A rotation happened! Show the function signature first
+            if (didRotate == 1 || didRotate == 4) {
+                pCode = 4;
+                activeCodeLine = 0; // Highlight function signature first
+                animTimer = 0.5f;
+            }
+            // If we did a LEFT rotate (RR Case, or first half of LR Case)
+            else if (didRotate == 2 || didRotate == 3) {
+                pCode = 5;
+                activeCodeLine = 0; // Highlight function signature first
+                animTimer = 0.5f;
+            }
+        } 
+        else {
+            // Tree is completely balanced! Clear task and reset the code box.
+            currentTask = TASK_NONE;
+            animTimer = 0.0f;
+            pCode = 6;
+            activeCodeLine = -1; // Turn off highlight
+        }
+    }
+}
 
 void AVLTreeState::resetNodeColors(Node* node) {
     if (node == nullptr) return;

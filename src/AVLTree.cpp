@@ -82,17 +82,23 @@ int AVLTree::balancingRotation(Node*& node) {
     if (rightCheck) return rightCheck;
 
     // Check balance of current node
-    node->height = 1 + std::max(height(node->left), height(node->right));
     int balance = getBalance(node);
+
+    // ignore the intermediate child and wait until we hit the target parent!
+    if (targetKey != -1 && node->key != targetKey) {
+        return 0; 
+    }
 
     // Left Heavy
     if (balance > 1) {
         if (getBalance(node->left) < 0) {
             // Left-Right Case: Do the Left rotation first!
             node->left = leftRotate(node->left, 1.0f);
+            targetKey = node->key;
             return 3; //Left rotation first for LR
         }
         node = rightRotate(node, 1.0f);
+        targetKey = -1;
         return 1; //Right rotation
     }
     
@@ -101,10 +107,12 @@ int AVLTree::balancingRotation(Node*& node) {
         if (getBalance(node->right) > 0) {
             // Right-Left Case: Do the Right rotation first!
             node->right = rightRotate(node->right, 1.0f); 
+            targetKey = node->key; 
             return 4; //Right rotation first for RL
         }
         // Right-Right Case
         node = leftRotate(node, 1.0f);
+        targetKey = -1;
         return 2; //Right rotation
     }
 
@@ -190,6 +198,14 @@ void AVLTree :: upHeight(Node*& node, float mul, float coord, float side) {
     upHeight(node->right, mul, coord*0.5f, 0.5f);
 }
 
+int AVLTree::fixHeights(Node* node) {
+    if (node == nullptr) return 0;
+    int leftH = fixHeights(node->left);
+    int rightH = fixHeights(node->right);
+    node->height = 1 + std::max(leftH, rightH);
+    return node->height;
+}
+
 Node* AVLTree :: copyHelper(const Node* node) {
     if (node == nullptr) return nullptr;
 
@@ -220,6 +236,7 @@ void AVLTree :: insert(int k) {
 }
 
 int AVLTree :: balance() {
+    fixHeights(root);
     return balancingRotation(root);
 }
 

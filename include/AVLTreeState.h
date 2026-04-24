@@ -10,7 +10,8 @@ struct AVLSnapshot {
     int activeCodeLine;
     int searchTargetValue;
     int pCode;
-    AVLTree* treeCopy; // deep copy of the tree
+    int searchPointerKey;
+    AVLTree* treeCopy;
 };
 
 class AVLTreeState : public DataStructureState 
@@ -42,6 +43,7 @@ private:
     int previousInputFocus;
     int activeInputFocus;
 
+    // AVL-specific state variables for manual animation control
     void saveState() override;
     void undoState() override;
     void handleAnimationStep() override;
@@ -51,14 +53,16 @@ private:
     int activeCodeLine;
     std::vector<AVLSnapshot> snapHistory;
 
-    const int TASK_NONE = 0;
-    const int TASK_HIGHLIGHT_NEW = 1;
-    const int TASK_TRAVERSE_INSERT = 2;
-    const int TASK_WAIT_FOR_BALANCE = 3;
-    const int TASK_TRAVERSE_SEARCH = 4;
-    const int TASK_TRAVERSE_DELETE = 5;
-    const int TASK_HIGHLIGHT_FOR_DELETE = 6;
+    // Tasks for highlighting and pseudo-code control
+    static const int TASK_NONE = 0;
+    static const int TASK_HIGHLIGHT_NEW = 1;
+    static const int TASK_TRAVERSE_INSERT = 2;
+    static const int TASK_WAIT_FOR_BALANCE = 3;
+    static const int TASK_TRAVERSE_SEARCH = 4;
+    static const int TASK_TRAVERSE_DELETE = 5;
+    static const int TASK_HIGHLIGHT_FOR_DELETE = 6;
 
+    // Task-specific step functions
     void stepTraverseInsert();
     void stepTraverseSearch();
     void stepTraverseDelete();

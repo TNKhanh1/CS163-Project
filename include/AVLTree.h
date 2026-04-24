@@ -52,6 +52,7 @@ private:
 public:
     AVLTree();
     ~AVLTree();
+    int targetKey = -1;
 
     const Node* rootCall() const;
 
