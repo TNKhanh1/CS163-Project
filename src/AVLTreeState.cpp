@@ -1,22 +1,71 @@
 #include "AVLTreeState.h"
 #include <random>
 
+
+
+static const std::vector<std::string> pseudoTable[] = {
+    { "// Select an operation..." },                          // 0: idle
+    { "Node* insert(Node* node, int key) {",                 // 1: insert
+        "    if (node == NULL) return new Node(key);",
+        "    if (key < node->key)",
+        "        node->left = insert(node->left, key);",
+        "    else if (key > node->key)",
+        "        node->right = insert(node->right, key);",
+        "    ",
+        "    return balance(node);",
+        "}" },
+    { "Node* deleteNode(Node* node, int key) {",             // 2: delete
+        "    if (node == NULL) return node;",
+        "    if (key < node->key) ",
+        "        node->left = deleteNode(node->left, key);",
+        "    else if (key > node->key) ",
+        "        node->right = deleteNode(node->right, key);",
+        "    else { /* Delete leaf or swap successor */ }",
+        "    ",
+        "    return balance(node);",
+        "}" },
+    { "Node* search(Node* node, int key) {",                 // 3: search
+        "    if (node == NULL || node->key == key)",
+        "        return node;",
+        "    if (key < node->key)",
+        "        return search(node->left, key);",
+        "    return search(node->right, key);",
+        "}" },
+    { "Node* rightRotate(Node* y) {",                        // 4: right rotate
+        "    Node* x = y->left;",
+        "    Node* sub = x->right;",
+        "    x->right = y;   // MAIN SWAP",
+        "    y->left = sub;  // REATTACH SUBTREE",
+        "    updateHeights();",
+        "    return x;",
+        "}" },
+    { "Node* leftRotate(Node* x) {",                         // 5: left rotate
+        "    Node* y = x->right;",
+        "    Node* sub = y->left;",
+        "    y->left = x;    // MAIN SWAP",
+        "    x->right = sub; // REATTACH SUBTREE",
+        "    updateHeights();",
+        "    return y;",
+        "}" },
+    { "// Tree is perfectly balanced!",                      // 6: balanced
+        "// Waiting for next operation..." },
+    { "// Random AVL Tree Generated",                        // 7: random
+        "// with 10-20 nodes"
+    },
+};
+
 AVLTreeState::AVLTreeState() : DataStructureState()
 {
     NextState = (int)STATE_AVLTREE;
     activeInputFocus = -1;
     previousInputFocus = -1;
 
-    for (int i = 0; i < 3; i++) {
-        avl[i] = new AVLTree();
-    }
+    avl = new AVLTree();
 }
 
 AVLTreeState::~AVLTreeState()
 {
-    for (int i = 0; i < 3; i++) {
-        delete avl[i];
-    }   
+    delete avl;
 }
 
 void AVLTreeState::loadAssets()
@@ -26,7 +75,8 @@ void AVLTreeState::loadAssets()
 }
 
 void AVLTreeState::update(float deltaTime)
-{
+{   
+    pseudoCode = pseudoTable[pCode];
     Vector2 mousePos = GetMousePosition();
     DataStructureState::updateSharedUI(deltaTime, mousePos);
     DataStructureState::updateControlPanel(deltaTime, mousePos);
@@ -42,8 +92,8 @@ void AVLTreeState::update(float deltaTime)
     }
 
     // Calculate perfect target coordinates before gliding them
-    updateTargetLayouts(const_cast<Node*>(avl[cur]->rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
-    updateNodePositions(const_cast<Node*>(avl[cur]->rootCall()), deltaTime);
+    updateTargetLayouts(const_cast<Node*>(avl->rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
+    updateNodePositions(const_cast<Node*>(avl->rootCall()), deltaTime);
 
     if (currentTask == TASK_TRAVERSE_INSERT) {
         animTimer -= deltaTime;
@@ -231,11 +281,11 @@ void AVLTreeState::update(float deltaTime)
         
         if (animTimer <= 0.0f) {
             // Time to delete the node
-            avl[cur]->delNode(searchTargetValue);
+            avl->delNode(searchTargetValue);
             
             // Move to balancing phase
             currentTask = TASK_WAIT_FOR_BALANCE;
-            animTimer = 0.6f;
+            animTimer = 0.5f;
         }
     }
 
@@ -251,15 +301,15 @@ void AVLTreeState::update(float deltaTime)
             } 
             else if (activeCodeLine == 1) {
                 // Time to actually insert the node into the backend!
-                avl[cur]->insert(searchTargetValue);
+                avl->insert(searchTargetValue);
                 
                 // Find it and color it green
-                const Node* newObj = avl[cur]->search(searchTargetValue);
+                const Node* newObj = avl->search(searchTargetValue);
                 if (newObj != nullptr) const_cast<Node*>(newObj)->color = GREEN;
                 
                 // Move on to balancing
                 currentTask = TASK_WAIT_FOR_BALANCE;
-                animTimer = 0.6f;
+                animTimer = 0.5f;
             }
         }
     }
@@ -267,50 +317,36 @@ void AVLTreeState::update(float deltaTime)
         animTimer -= deltaTime;
         
         if (animTimer <= 0.0f) {
-            // Time is up! Try to do exactly ONE rotation.
-            int didRotate = avl[cur]->balance();
-            
-            if (didRotate != 0) {
-            // A rotation happened! Wait 1.5 second before doing the next one
-            animTimer = 0.5f;
-            // (This perfectly separates Right-Left rotations into two steps!)
-            if (didRotate == 1 || didRotate == 4) {
-                    pseudoCode = {
-                        "Node* rightRotate(Node* y) {",
-                        "    Node* x = y->left;",
-                        "    Node* sub = x->right;",
-                        "    x->right = y;   // MAIN SWAP",
-                        "    y->left = sub;  // REATTACH SUBTREE",
-                        "    updateHeights();",
-                        "    return x;",
-                        "}"
-                    };
-                    activeCodeLine = 3; // Highlight the "x->right = y" line!
-                }
-                // If we did a LEFT rotate (RR Case, or first half of LR Case)
-                else if (didRotate == 2 || didRotate == 3) {
-                    pseudoCode = {
-                        "Node* leftRotate(Node* x) {",
-                        "    Node* y = x->right;",
-                        "    Node* sub = y->left;",
-                        "    y->left = x;    // MAIN SWAP",
-                        "    x->right = sub; // REATTACH SUBTREE",
-                        "    updateHeights();",
-                        "    return y;",
-                        "}"
-                    };
-                    activeCodeLine = 3; // Highlight the "y->left = x" line!
-                }
+            // If we just showed the function signature, now highlight the swap
+            if (activeCodeLine == 0) {
+                activeCodeLine = -1;
+                animTimer = 0.5f;
             } 
             else {
-                // Tree is completely balanced! Clear task and reset the code box.
-                currentTask = TASK_NONE;
-                animTimer = 0.0f;
-                pseudoCode = {
-                    "// Tree is perfectly balanced!",
-                    "// Waiting for next operation..."
-                };
-                activeCodeLine = -1; // Turn off highlight
+                // Try to do exactly ONE rotation.
+                int didRotate = avl->balance();
+                
+                if (didRotate != 0) {
+                    // A rotation happened! Show the function signature first
+                    if (didRotate == 1 || didRotate == 4) {
+                        pCode = 4;
+                        activeCodeLine = 0; // Highlight function signature first
+                        animTimer = 0.5f;
+                    }
+                    // If we did a LEFT rotate (RR Case, or first half of LR Case)
+                    else if (didRotate == 2 || didRotate == 3) {
+                        pCode = 5;
+                        activeCodeLine = 0; // Highlight function signature first
+                        animTimer = 0.5f;
+                    }
+                } 
+                else {
+                    // Tree is completely balanced! Clear task and reset the code box.
+                    currentTask = TASK_NONE;
+                    animTimer = 0.0f;
+                    pCode = 6;
+                    activeCodeLine = -1; // Turn off highlight
+                }
             }
         }
     }
@@ -324,7 +360,7 @@ void AVLTreeState::draw()
     Vector2 titleSize = MeasureTextEx(listFont, titleText, 55, 6.5f);
     DrawTextEx(listFont, titleText, { (1800.0f - titleSize.x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
-    drawNode(avl[cur]->rootCall());
+    drawNode(avl->rootCall());
 
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear", "Random"});
@@ -455,7 +491,7 @@ void AVLTreeState::DrawSubMenuContent()
         case OP_SLOT5: // Random
             // Shift the Y position down for the 5th slot
 
-            if (DrawButtonText({subX + 75, startY + 4 * (mainHeight + gap)}, "GENERATE RANDOM", 180, mainHeight, false)) {
+            if (DrawButtonText({subX + 65, startY + 4 * (mainHeight + gap)}, "GENERATE RANDOM", 200, mainHeight, false)) {
                 onExecuteOp(OP_SLOT5);
             }
             break;
@@ -479,16 +515,12 @@ void AVLTreeState::DrawSubMenuContent()
 
 void AVLTreeState::onExecuteOp(MainOp op)
 {
-    
+    snapHistory.clear();
     if (op == OP_SLOT4) {
         // 1. Wipe the tree data
-        cur = (cur + 1) % 3;
-        if (avl[cur] != nullptr) avl[cur]->clear();
-        latest = (latest + 1) % 3;
-        undoOp[latest] = 4;
-        if (undoBound < 3) undoBound++;
-        if (redoBound > 0) redoBound = 0;
-        avl[cur]->clear();
+        if (avl != nullptr) avl->clear();
+        pCode = 0;
+        activeCodeLine = -1;
 
         // 2. Reset the visualizer states so it doesn't look for nodes that no longer exist
         currentTask = TASK_NONE;
@@ -501,8 +533,8 @@ void AVLTreeState::onExecuteOp(MainOp op)
     }
     else if (op == OP_SLOT5) {
         // 1. Clear the current tree and move to a new slot
-        cur = (cur + 1) % 3;
-        if (avl[cur] != nullptr) avl[cur]->clear();
+        // cur = (cur + 1) % 3;
+        if (avl != nullptr) avl->clear();
         
         // 2. Generate random values (between 1 and 100)
         std::mt19937 gen(std::random_device{}());
@@ -513,27 +545,18 @@ void AVLTreeState::onExecuteOp(MainOp op)
         
         for (int i = 0; i < numNodes; i++) {
             int randomValue = distValues(gen);
-            avl[cur]->insert(randomValue);
+            avl->insert(randomValue);
+
+            // 3. Perform balancing to ensure the tree is properly balanced
+            while (avl->balance() != 0) {
+                // Keep balancing until no rotations occur
+            }
         }
-        
-        // 3. Perform balancing to ensure the tree is properly balanced
-        while (avl[cur]->balance() != 0) {
-            // Keep balancing until no rotations occur
-        }
-        
-        // 4. Update tracking variables
-        latest = (latest + 1) % 3;
-        undoOp[latest] = 5; // Mark as random generation operation
-        if (undoBound < 3) undoBound++;
-        if (redoBound > 0) redoBound = 0;
         
         // 5. Reset the visualizer states
         currentTask = TASK_NONE;
         animTimer = 0.0f;
-        pseudoCode = {
-            "// Random AVL Tree Generated",
-            "// with 10-20 nodes"
-        };
+        pCode = 7;
         activeCodeLine = -1;
         
         // 6. Clear any error messages or active inputs
@@ -600,7 +623,7 @@ void AVLTreeState::onExecuteOp(MainOp op)
 
 			
     // Reset colors before starting a new operation!
-    resetNodeColors(const_cast<Node*>(avl[cur]->rootCall()));
+    resetNodeColors(const_cast<Node*>(avl->rootCall()));
     int curOp = 0;
     int id = 0;
     if (op == OP_SLOT1) id = 1;
@@ -609,19 +632,9 @@ void AVLTreeState::onExecuteOp(MainOp op)
     int value = std::stoi(inputBuffers[id]);
 
     if (op == OP_SLOT1) { // OP_INSERT
-        pseudoCode = {
-            "Node* insert(Node* node, int key) {",
-            "    if (node == NULL) return new Node(key);",
-            "    if (key < node->key)",
-            "        node->left = insert(node->left, key);",
-            "    else if (key > node->key)",
-            "        node->right = insert(node->right, key);",
-            "    ",
-            "    return balance(node);",
-            "}"
-        };
+        pCode = 1;
         activeCodeLine = 0;
-        if (avl[cur]->rootCall() == nullptr) {
+        if (avl->rootCall() == nullptr) {
             searchTargetValue = value; 
             currentTask = TASK_HIGHLIGHT_NEW;
             animTimer = 0.5f;
@@ -629,31 +642,19 @@ void AVLTreeState::onExecuteOp(MainOp op)
         else {
             // If nodes exist, start YELLOW search traversal!
             searchTargetValue = value;
-            searchPointer = avl[cur]->rootCall();
+            searchPointer = avl->rootCall();
             const_cast<Node*>(searchPointer)->color = YELLOW;
             
             currentTask = TASK_TRAVERSE_INSERT;
             animTimer = 0.5f; 
         }
-        curOp = 1;
         inputBuffers[1].clear();
     }
     else if (op == OP_SLOT2) {
-        pseudoCode = {
-            "Node* deleteNode(Node* node, int key) {",
-            "    if (node == NULL) return node;",
-            "    if (key < node->key) ",
-            "        node->left = deleteNode(node->left, key);",
-            "    else if (key > node->key) ",
-            "        node->right = deleteNode(node->right, key);",
-            "    else { /* Delete leaf or swap successor */ }",
-            "    ",
-            "    return balance(node);",
-            "}"
-        };
+        pCode = 2;
         activeCodeLine = 0;
         
-        if (avl[cur]->rootCall() == nullptr) {
+        if (avl->rootCall() == nullptr) {
             // Empty tree, nothing to delete
             currentErrorSlot = 2;
             inputErrorMsg = "Tree is empty!";
@@ -662,28 +663,19 @@ void AVLTreeState::onExecuteOp(MainOp op)
         else {
             // Start traversal to find the node
             searchTargetValue = value;
-            searchPointer = avl[cur]->rootCall();
+            searchPointer = avl->rootCall();
             const_cast<Node*>(searchPointer)->color = YELLOW;
             
             currentTask = TASK_TRAVERSE_DELETE;
             animTimer = 0.5f; 
         }
-        curOp = 2;
         inputBuffers[2].clear();
     }
     else if (op == OP_SLOT3) {
-        pseudoCode = {
-            "Node* search(Node* node, int key) {",
-            "    if (node == NULL || node->key == key)",
-            "        return node;",
-            "    if (key < node->key)",
-            "        return search(node->left, key);",
-            "    return search(node->right, key);",
-            "}"
-        };
+        pCode = 3;
         activeCodeLine = 0;
-        
-        if (avl[cur]->rootCall() == nullptr) {
+
+        if (avl->rootCall() == nullptr) {
             // Empty tree, nothing to find
             currentErrorSlot = 3;
             inputErrorMsg = "Value not found!";
@@ -692,7 +684,7 @@ void AVLTreeState::onExecuteOp(MainOp op)
         else {
             // Start traversal to find the node
             searchTargetValue = value;
-            searchPointer = avl[cur]->rootCall();
+            searchPointer = avl->rootCall();
             const_cast<Node*>(searchPointer)->color = YELLOW;
             
             currentTask = TASK_TRAVERSE_SEARCH;
@@ -700,17 +692,73 @@ void AVLTreeState::onExecuteOp(MainOp op)
         }
         inputBuffers[3].clear();
     }
-    if (curOp != 0) {
-        latest = (latest + 1) % 3;
-        undoOp[latest] = curOp;
-        if (undoBound < 3) undoBound++;
-        if (redoBound > 0) redoBound = 0;
-        valOp[latest] = value;
-    }
 
     // Clear the text box on success
     activeInputFocus = -1;
 }
+
+void AVLTreeState::saveState() {
+    AVLSnapshot snap;
+    snap.currentTask    = currentTask;
+    snap.activeCodeLine = activeCodeLine;
+    snap.searchTargetValue = searchTargetValue;
+    snap.pCode     = pCode;
+
+    // Deep copy the tree using your existing copyTree()
+    snap.treeCopy = new AVLTree();
+    snap.treeCopy->copyTree(*avl);
+
+    snapHistory.push_back(snap);
+}
+
+void AVLTreeState::undoState() {
+    if (snapHistory.empty()) return;
+
+    AVLSnapshot snap = snapHistory.back();
+    snapHistory.pop_back();
+
+    // Restore tree
+    avl->clear();
+    avl->copyTree(*snap.treeCopy);
+    delete snap.treeCopy;
+
+    // Restore visualizer state
+    currentTask        = snap.currentTask;
+    activeCodeLine     = snap.activeCodeLine;
+    searchTargetValue  = snap.searchTargetValue;
+    pCode         = snap.pCode;
+
+    // Restore searchPointer to the correct node in the restored tree
+    if (currentTask != TASK_NONE) {
+        searchPointer = avl->search(searchTargetValue);
+    } else {
+        searchPointer = nullptr;
+    }
+
+    isAnimating    = true;
+    isAnimFinished = false;
+}
+
+void AVLTreeState::handleAnimationStep() {
+    // Dispatch to whichever task is active
+    if (currentTask == TASK_TRAVERSE_INSERT)      stepTraverseInsert();
+    else if (currentTask == TASK_TRAVERSE_SEARCH) stepTraverseSearch();
+    else if (currentTask == TASK_TRAVERSE_DELETE) stepTraverseDelete();
+    else if (currentTask == TASK_HIGHLIGHT_NEW)   stepHighlightNew();
+    else if (currentTask == TASK_HIGHLIGHT_FOR_DELETE) stepHighlightForDelete();
+    else if (currentTask == TASK_WAIT_FOR_BALANCE) stepWaitForBalance();
+    else {
+        isAnimating    = false;
+        isAnimFinished = true;
+    }
+}
+
+void AVLTreeState::stepTraverseInsert() {}
+void AVLTreeState::stepTraverseSearch() {}
+void AVLTreeState::stepTraverseDelete() {}
+void AVLTreeState::stepHighlightNew() {}
+void AVLTreeState::stepHighlightForDelete() {}
+void AVLTreeState::stepWaitForBalance() {}
 
 void AVLTreeState::resetNodeColors(Node* node) {
     if (node == nullptr) return;
