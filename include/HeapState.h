@@ -67,4 +67,21 @@ private:
     // Tách riêng hàm vẽ để code clear hơn
     void drawBinaryTree();
     void drawHorizontalArray();
+
+    // Undo/redo state management
+    struct HeapStateSnapshot {
+        int activeCodeLine;
+        HeapTask currentTask;
+        int animCurrentIdx;
+        int animParentIdx;
+        int insertAnimPhase;
+        int extractAnimPhase;
+        std::vector<int> nodeValues;
+        std::vector<Color> nodeColors;
+    };
+    std::vector<HeapStateSnapshot> history;
+
+    void saveState() override;
+    void undoState() override;
+    void onModeSwitch(bool toAutoMode) override;
 };

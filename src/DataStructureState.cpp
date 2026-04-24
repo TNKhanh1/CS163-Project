@@ -257,7 +257,12 @@ void DataStructureState::drawSharedUI()
 	const char* modeLabel = isAutoPlay ? "AUTO" : "MANUAL";
 	if (DrawButtonText({modeToggleX, stepY}, modeLabel, buttonWidth, 35, !isAutoPlay))
 	{
+		bool wasManual = !isAutoPlay;
 		isAutoPlay = !isAutoPlay;
+		// When switching from Manual to Auto, notify the child state to complete the animation
+		if (wasManual) {
+			onModeSwitch(true);
+		}
 	}
 	
 	// 2. Next & Back Buttons (Only visible during Manual mode + Animating)

@@ -772,3 +772,101 @@ void HeapState::drawHorizontalArray()
         DrawTextEx(numberFont, idxText, { rect.x + (nodeSize - idxSize.x) / 2.0f, rect.y + nodeSize + 5.0f }, 18.0f * zoomMultiplier, 1.0f, DARKGRAY);
     }
 }
+
+// ---------------------------------------------------------
+// 8. UNDO/REDO STATE MANAGEMENT
+// ---------------------------------------------------------
+void HeapState::saveState()
+{
+    HeapStateSnapshot snap;
+    snap.activeCodeLine = activeCodeLine;
+    snap.currentTask = currentTask;
+    snap.animCurrentIdx = animCurrentIdx;
+    snap.animParentIdx = animParentIdx;
+    snap.insertAnimPhase = insertAnimPhase;
+    snap.extractAnimPhase = extractAnimPhase;
+
+    // Copy the exact state of every node into the snapshot
+    for (auto& node : visualNodes) {
+        snap.nodeValues.push_back(node.value);
+        snap.nodeColors.push_back(node.color);
+    }
+
+    history.push_back(snap);
+}
+
+void HeapState::undoState()
+{
+    if (history.empty()) return;
+
+    // Get the last snapshot and remove it from history
+    HeapStateSnapshot snap = history.back();
+    history.pop_back();
+
+    // Restore animation state
+    activeCodeLine = snap.activeCodeLine;
+    currentTask = snap.currentTask;
+    animCurrentIdx = snap.animCurrentIdx;
+    animParentIdx = snap.animParentIdx;
+    insertAnimPhase = snap.insertAnimPhase;
+    extractAnimPhase = snap.extractAnimPhase;
+
+    // Update existing nodes in-place to preserve current Vector2 physical screen coordinates
+    size_t snapIndex = 0;
+
+    // Phase A: Update existing nodes
+    while (snapIndex < snap.nodeValues.size() && snapIndex < visualNodes.size()) {
+        visualNodes[snapIndex].value = snap.nodeValues[snapIndex];
+        visualNodes[snapIndex].color = snap.nodeColors[snapIndex];
+        snapIndex++;
+    }
+
+    // Phase B: Snapshot has more nodes (undid a delete operation)
+    while (snapIndex < snap.nodeValues.size()) {
+        HeapNodeVisual newNode;
+        newNode.value = snap.nodeValues[snapIndex];
+        newNode.color = snap.nodeColors[snapIndex];
+        newNode.position = { 1800.0f / 2.0f, 150.0f }; // Will be corrected by updateTargetPositions
+        newNode.targetPosition = { 0, 0 };
+        visualNodes.push_back(newNode);
+        snapIndex++;
+    }
+
+    // Phase C: Snapshot has fewer nodes (undid an insert operation)
+    while (visualNodes.size() > snap.nodeValues.size()) {
+        visualNodes.pop_back();
+    }
+
+    // Sync with actual heap data
+    std::vector<int> heapData;
+    for (auto& node : visualNodes) {
+        heapData.push_back(node.value);
+    }
+    heap.buildHeap(heapData);
+
+    // Recalculate target positions
+    updateTargetPositions();
+}
+
+void HeapState::onModeSwitch(bool toAutoMode)
+{
+    if (toAutoMode && isAnimating && !isAnimFinished)
+    {
+        // Complete the remaining animation steps automatically
+        while (isAnimating && !isAnimFinished && CheckStepReady(0.0f, 0.0f))
+        {
+            saveState();
+            handleAnimationStep();
+        }
+        
+        // Reset animation state to idle - don't set isAnimFinished to true
+        // as it may block new animations from starting
+        isAnimating = false;
+        currentTask = HEAP_TASK_NONE;
+        activeCodeLine = -1;
+        resetNodeColors();
+        
+        // Final sync to ensure tree is in correct state
+        syncVisualNodes();
+    }
+}

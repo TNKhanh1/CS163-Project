@@ -75,6 +75,7 @@ protected:
 	virtual void handleAnimationStep() {} 
 	virtual void saveState() {}
 	virtual void undoState() {}
+	virtual void onModeSwitch(bool toAutoMode) {} // Called when switching between Auto/Manual mode
 
 	// Menu drawing tools
 	void DrawSideMenuFrame(const std::vector<std::string>& labels);
