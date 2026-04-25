@@ -56,27 +56,33 @@ static const std::vector<std::string> pseudoTable[] = {
 AVLTreeState::AVLTreeState() : DataStructureState()
 {
     NextState = (int)STATE_AVLTREE;
-    activeInputFocus = -1;
+    activeInputFocus  = -1;
     previousInputFocus = -1;
 
     avl = new AVLTree();
-    currentTask = TASK_NONE;
-    pCode = 0;
-    activeCodeLine = -1;
-    searchPointer = nullptr;
-    animTimer = 0.0f;
+    currentTask       = TASK_NONE;
+    pCode             = 0;
+    activeCodeLine    = -1;
+    searchPointer     = nullptr;
+    animTimer         = 0.0f;
     searchTargetValue = 0;
 
-    saveState();
+    // Push the empty tree as the baseline op[0]
+    AVLOpSnapshot* fresh = new AVLOpSnapshot();
+    fresh->treeCopy = new AVLTree();
+    fresh->pCode    = 0;
+    opHistory.push_back(fresh);
+    opIndex   = 0;
+    stepIndex = -1;
 }
 
 AVLTreeState::~AVLTreeState()
 {
     delete avl;
-    for (auto& snap : snapHistory) {
-        delete snap.treeCopy;
+    for (auto* o : opHistory) {
+        for (auto* s : o->steps) { delete s->treeCopy; delete s; }
+        delete o->treeCopy; delete o;
     }
-    snapHistory.clear();
 }
 
 void AVLTreeState::loadAssets()
@@ -86,15 +92,17 @@ void AVLTreeState::loadAssets()
 }
 
 void AVLTreeState::update(float deltaTime)
-{   
+{
     pseudoCode = pseudoTable[pCode];
     Vector2 mousePos = GetMousePosition();
     DataStructureState::updateSharedUI(deltaTime, mousePos);
     DataStructureState::updateControlPanel(deltaTime, mousePos);
-    
+
+    // Cursor tracking for text input focus changes
     if (activeInputFocus != previousInputFocus) {
         cursorIndex = (activeInputFocus == -1) ? 0 : inputBuffers[activeInputFocus].length();
-        textScrollX = 0.0f; cursorVisible = true;
+        textScrollX = 0.0f;
+        cursorVisible = true;
         previousInputFocus = activeInputFocus;
     }
 
@@ -102,49 +110,48 @@ void AVLTreeState::update(float deltaTime)
         HandleTextInput(inputBuffers[activeInputFocus], false);
     }
 
-    bool stepTriggered = false;
-
-    // 1. Check UI Buttons (OUTSIDE of the TASK_NONE check so they always work)
+    // 1. Back button — always scrub backward through op/step history
     if (stepBackwardRequested) {
         undoState();
         stepBackwardRequested = false;
     }
 
+    // 2. Next button
     if (stepForwardRequested) {
-        if (currentSnapIndex < (int)snapHistory.size() - 1) {
-            redoState(); // Scrub forward from timeline
-        } else if (currentTask != TASK_NONE) {
-            stepTriggered = true; // Calculate next fresh step
-        }
-        stepForwardRequested = false;
-    }
+    if (opIndex >= 0) {
+        AVLOpSnapshot* curOp = opHistory[opIndex];
+        bool atLiveTip = (opIndex == (int)opHistory.size() - 1)
+                      && (stepIndex == -1);
 
-    // 2. Check AutoPlay Timer
+        if (atLiveTip && currentTask != TASK_NONE) {
+            handleAnimationStep(); // live tip, compute fresh step
+        } else {
+            redoState(); // everything else — scrub through cached history
+        }
+    }
+    stepForwardRequested = false;
+}
+
     if (isAutoPlay) {
-        animTimer -= deltaTime;
+        animTimer -= deltaTime * animSpeedMultiplier;
         if (animTimer <= 0.0f) {
-            if (currentSnapIndex < (int)snapHistory.size() - 1) {
-                redoState(); // Auto-scrub forward through timeline
-            } else if (currentTask != TASK_NONE) {
-                stepTriggered = true; // Auto-calculate next fresh step
+            // Only at the absolute live tip (latest op, final state, animation running)
+            bool atLiveTip = (opIndex == (int)opHistory.size() - 1)
+                        && (stepIndex == -1)
+                        && (currentTask != TASK_NONE);
+
+            if (atLiveTip) {
+                handleAnimationStep();
+            } else if (opIndex < (int)opHistory.size() - 1
+                    || (stepIndex >= 0 && stepIndex < (int)opHistory[opIndex]->steps.size() - 1)
+                    || (stepIndex == (int)opHistory[opIndex]->steps.size() - 1)) {
+                redoState(); // scrub cached history forward
             }
-            animTimer = 0.5f; // Reset for next frame
+            animTimer = 0.7f;
         }
     }
 
-    // 3. Route the Trigger (ONLY if a fresh step is needed)
-    if (stepTriggered && currentTask != TASK_NONE) {
-        switch (currentTask) {
-            case TASK_TRAVERSE_INSERT:   stepTraverseInsert(); break;
-            case TASK_TRAVERSE_SEARCH:   stepTraverseSearch(); break;
-            case TASK_TRAVERSE_DELETE:   stepTraverseDelete(); break;
-            case TASK_HIGHLIGHT_NEW:     stepHighlightNew(); break;
-            case TASK_HIGHLIGHT_FOR_DELETE: stepHighlightForDelete(); break;
-            case TASK_WAIT_FOR_BALANCE:  stepWaitForBalance(); break;
-        }
-    }
-
-    // Calculate perfect target coordinates before gliding them
+    // 4. Position lerp — always runs regardless of play mode
     updateTargetLayouts(const_cast<Node*>(avl->rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
     updateNodePositions(const_cast<Node*>(avl->rootCall()), deltaTime);
 }
@@ -203,6 +210,27 @@ bool AVLTreeState::checkBuffer(std::string& currentInput, int id) {
 		return false;
 	}
     return true;
+}
+
+bool AVLTreeState::hasNextStep() {
+    if (opIndex < 0) return false;
+    // There's a next op to jump to
+    if (opIndex < (int)opHistory.size() - 1) return true;
+    // Within this op's cached steps
+    if (stepIndex >= 0 && stepIndex < (int)opHistory[opIndex]->steps.size() - 1) return true;
+    // At a cached step's end, final state exists
+    if (stepIndex == (int)opHistory[opIndex]->steps.size() - 1 && !opHistory[opIndex]->steps.empty()) return true;
+    // At live tip with animation still running
+    if (stepIndex == -1 && currentTask != TASK_NONE) return true;
+    return false;
+}
+bool AVLTreeState::hasPrevStep() {
+    if (opIndex < 0) return false;
+    if (opIndex > 0) return true;
+    if (stepIndex > 0) return true;
+    if (stepIndex == 0) return true;
+    if (stepIndex == -1 && !opHistory[opIndex]->steps.empty()) return true;
+    return false;
 }
 
 void AVLTreeState::DrawSubMenuContent()
@@ -310,321 +338,243 @@ void AVLTreeState::DrawSubMenuContent()
     }
 }
 
-void AVLTreeState::onExecuteOp(MainOp op)
-{
+void AVLTreeState::onExecuteOp(MainOp op) {
+    // 1. Jump to the absolute latest op's final state (ignores where opIndex is)
     if (!opHistory.empty()) {
-        const AVLOpSnapshot& latest = opHistory.back();
-        avl->clear();
-        avl->copyTree(*latest.treeCopy);
-        pCode = latest.pCode;
+        AVLOpSnapshot* latest = opHistory.back();
+        avl->clear(); avl->copyTree(*latest->treeCopy);
+        pCode = latest->pCode;
+        opIndex = (int)opHistory.size() - 1;
     }
-    opIndex = (int)opHistory.size() - 1;
-    
-    currentTask = TASK_NONE; // the latest op snapshot is already post-animation
-    isAnimating = false;
-    isAnimFinished = true;
-    searchPointer = nullptr;
+    currentTask = TASK_NONE;
+    isAnimating = false; isAnimFinished = true;
+    searchPointer = nullptr; stepIndex = -1;
 
-    for (auto& s : snapHistory) delete s.treeCopy;
-    snapHistory.clear();
-    currentSnapIndex = -1;
-
+    // 2. Clear wipes opHistory entirely (only case where we delete)
     if (op == OP_SLOT4) {
-        // 1. Wipe the tree data
         avl->clear();
-        pCode = 0;
-        activeCodeLine = -1;
-        for (auto& op : opHistory) {
-            delete op.treeCopy;
+        for (auto* o : opHistory) {
+            for (auto* s : o->steps) { delete s->treeCopy; delete s; }
+            delete o->treeCopy; delete o;
         }
         opHistory.clear();
-        opIndex = -1;
-
-        // 2. Reset the visualizer states so it doesn't look for nodes that no longer exist
-        currentTask = TASK_NONE;
-        isAnimating = false;
-        isAnimFinished = true;
-        animTimer = 0.0f;
-        currentSnapIndex = -1;
-
-        // 3. Clear any error messages or active inputs
-        inputErrorMsg = "";
-        activeInputFocus = -1;
-
-        saveOpState();
+        pCode = 0; activeCodeLine = -1; opIndex = -1; stepIndex = -1;
+        currentTask = TASK_NONE; isAnimating = false; isAnimFinished = true;
+        // Push empty tree as baseline
+        AVLOpSnapshot* fresh = new AVLOpSnapshot();
+        fresh->treeCopy = new AVLTree();
+        fresh->pCode = 0;
+        opHistory.push_back(fresh);
+        opIndex = 0;
+        inputErrorMsg = ""; activeInputFocus = -1;
         return;
     }
-    else if (op == OP_SLOT5) {
-        // 1. Clear the current tree and move to a new slot
-        // cur = (cur + 1) % 3;
-        if (avl != nullptr) avl->clear();
-        
-        // 2. Generate random values (between 1 and 100)
+
+    // 3. Random — instant op, no animation steps
+    if (op == OP_SLOT5) {
+        avl->clear();
         std::mt19937 gen(std::random_device{}());
         std::uniform_int_distribution<> distNodes(10, 20);
         std::uniform_int_distribution<> distValues(1, 100);
-        
-        int numNodes = distNodes(gen);
-        
-        for (int i = 0; i < numNodes; i++) {
-            int randomValue = distValues(gen);
-            avl->insert(randomValue);
-
-            // 3. Perform balancing to ensure the tree is properly balanced
-            while (avl->balance() != 0) {
-                // Keep balancing until no rotations occur
-            }
+        int n = distNodes(gen);
+        for (int i = 0; i < n; i++) {
+            avl->insert(distValues(gen));
+            while (avl->balance() != 0) {}
         }
-        
         Node* r = const_cast<Node*>(avl->rootCall());
         updateTargetLayouts(r, 900.0f, 150.0f, 350.0f * zoomMultiplier);
         snapNodePositions(r);
         pCode = 7; activeCodeLine = -1;
-        currentTask = TASK_NONE;
-        isAnimating = false; animTimer = 0.0f;
+        currentTask = TASK_NONE; isAnimating = false;
+        AVLOpSnapshot* randOp = new AVLOpSnapshot();
+        randOp->treeCopy = new AVLTree();
+        randOp->treeCopy->copyTree(*avl);
+        randOp->pCode = 7;
+        opHistory.push_back(randOp);  // append, never delete old ops
+        opIndex = (int)opHistory.size() - 1;
         inputErrorMsg = ""; activeInputFocus = -1;
-
-        // Save the generated tree as a new op
-        saveOpState();
         return;
     }
-    // else if (op == OP_SLOT5) {
-    //     if (undoBound > 0) {
-    //         if (undoOp[latest] == 1) {
-    //             avl[cur]->delNode(valOp[latest]);
-    //             latest = (latest + 2) % 3;
-    //             redoBound++;
-    //             undoBound--;
-    //         }
-    //         else if (undoOp[latest] == 2) {
-    //             avl[cur]->insert(valOp[latest]);
-    //             latest = (latest + 2) % 3;
-    //             redoBound++;
-    //             undoBound--;
-    //         }
-    //         else if (undoOp[latest] == 4) {
-    //             cur = (cur + 2) % 3;
-    //             latest = (latest + 2) % 3;
-    //             redoBound++;
-    //             undoBound--;
-    //         }
-    //     }
 
-    //     currentTask = TASK_NONE;
-    //     animTimer = 0.0f;
-    //     searchPointer = nullptr;
-    //     inputErrorMsg = "";
-    //     activeInputFocus = -1;
-    //     return;
-    // }
-    // else if (op == OP_SLOT6) {
-    //     if (redoBound > 0) {
-    //         latest = (latest + 1) % 3;
-    //         if (undoOp[latest] == 1) {
-    //             avl[cur]->insert(valOp[latest]);
-    //             redoBound--;
-    //             undoBound++;
-    //         }
-    //         else if (undoOp[latest] == 2) {
-    //             avl[cur]->delNode(valOp[latest]);
-    //             redoBound--;
-    //             undoBound++;
-    //         }
-    //         else if (undoOp[latest] == 4) {
-    //             cur = (cur + 1) % 3;
-    //             redoBound--;
-    //             undoBound++;
-    //         }
-    //     }
+    // 4. Insert / Delete / Search — create new op entry, steps filled by handleAnimationStep
+    AVLOpSnapshot* newOp = new AVLOpSnapshot();
+    newOp->treeCopy = new AVLTree();
+    newOp->treeCopy->copyTree(*avl); // placeholder, updated when op finishes
+    newOp->pCode = pCode;
+    opHistory.push_back(newOp);      // always append
+    opIndex = (int)opHistory.size() - 1;
+    stepIndex = -1;
 
-    //     currentTask = TASK_NONE;
-    //     animTimer = 0.0f;
-    //     searchPointer = nullptr;
-    //     inputErrorMsg = "";
-    //     activeInputFocus = -1;
-    //     return;
-    // }
-
-			
-    // Reset colors before starting a new operation!
     resetNodeColors(const_cast<Node*>(avl->rootCall()));
-    int id = 0;
-    if (op == OP_SLOT1) id = 1;
-    else if (op == OP_SLOT2) id = 2;
-    else if (op == OP_SLOT3) id = 3;
+    int id = (op == OP_SLOT1) ? 1 : (op == OP_SLOT2) ? 2 : 3;
     int value = std::stoi(inputBuffers[id]);
-        
-    isAnimating = true;
-    isAnimFinished = false;
+    isAnimating = true; isAnimFinished = false;
 
-    if (op == OP_SLOT1) { // OP_INSERT
-        pCode = 1;
-        activeCodeLine = 0;
-        if (avl->rootCall() == nullptr) {
-            searchTargetValue = value; 
-            currentTask = TASK_HIGHLIGHT_NEW;
-            animTimer = 0.5f;
-        }
+    if (op == OP_SLOT1) {
+        pCode = 1; activeCodeLine = 0; searchTargetValue = value;
+        if (avl->rootCall() == nullptr) { currentTask = TASK_HIGHLIGHT_NEW; }
         else {
-            // If nodes exist, start YELLOW search traversal!
-            searchTargetValue = value;
             searchPointer = avl->rootCall();
             const_cast<Node*>(searchPointer)->color = YELLOW;
-            
             currentTask = TASK_TRAVERSE_INSERT;
-            animTimer = 0.5f; 
         }
         inputBuffers[1].clear();
     }
     else if (op == OP_SLOT2) {
-        pCode = 2;
-        activeCodeLine = 0;
-        
+        pCode = 2; activeCodeLine = 0;
         if (avl->rootCall() == nullptr) {
-            // Empty tree, nothing to delete
-            currentErrorSlot = 2;
-            inputErrorMsg = "Tree is empty!";
-            inputErrorTimer = 2.5f;
-        }
-        else {
-            // Start traversal to find the node
+            currentErrorSlot = 2; inputErrorMsg = "Tree is empty!"; inputErrorTimer = 2.5f;
+        } else {
             searchTargetValue = value;
             searchPointer = avl->rootCall();
             const_cast<Node*>(searchPointer)->color = YELLOW;
-            
             currentTask = TASK_TRAVERSE_DELETE;
-            animTimer = 0.5f; 
         }
         inputBuffers[2].clear();
     }
     else if (op == OP_SLOT3) {
-        pCode = 3;
-        activeCodeLine = 0;
-
+        pCode = 3; activeCodeLine = 0;
         if (avl->rootCall() == nullptr) {
-            // Empty tree, nothing to find
-            currentErrorSlot = 3;
-            inputErrorMsg = "Value not found!";
-            inputErrorTimer = 2.5f;
-        }
-        else {
-            // Start traversal to find the node
+            currentErrorSlot = 3; inputErrorMsg = "Value not found!"; inputErrorTimer = 2.5f;
+        } else {
             searchTargetValue = value;
             searchPointer = avl->rootCall();
             const_cast<Node*>(searchPointer)->color = YELLOW;
-            
             currentTask = TASK_TRAVERSE_SEARCH;
-            animTimer = 0.5f;
         }
         inputBuffers[3].clear();
     }
-
-    // Clear the text box on success
     activeInputFocus = -1;
 }
 
-void AVLTreeState::saveState() {
+AVLSnapshot* AVLTreeState::captureStep() {
+    AVLSnapshot* s = new AVLSnapshot();
+    s->currentTask       = currentTask;
+    s->activeCodeLine    = activeCodeLine;
+    s->searchTargetValue = searchTargetValue;
+    s->pCode             = pCode;
+    s->searchPointerKey  = (searchPointer != nullptr) ? searchPointer->key : -9999;
+    s->treeCopy          = new AVLTree();
+    s->treeCopy->copyTree(*avl);
+    return s;
+}
 
-    AVLSnapshot snap;
-    snap.currentTask       = currentTask;
-    snap.activeCodeLine    = activeCodeLine;
-    snap.searchTargetValue = searchTargetValue;
-    snap.pCode             = pCode;
-    snap.searchPointerKey  = (searchPointer != nullptr) ? searchPointer->key : -9999;
-    
-    snap.treeCopy = new AVLTree();
-    snap.treeCopy->copyTree(*avl);
-    
-    snapHistory.push_back(snap);
-    currentSnapIndex = snapHistory.size() - 1; // Move index to the very end
+void AVLTreeState::applyStep(AVLSnapshot* s) {
+    avl->clear();
+    avl->copyTree(*s->treeCopy);
+    currentTask       = s->currentTask;
+    activeCodeLine    = s->activeCodeLine;
+    searchTargetValue = s->searchTargetValue;
+    pCode             = s->pCode;
+    searchPointer     = (s->searchPointerKey != -9999)
+                        ? avl->search(s->searchPointerKey) : nullptr;
+    isAnimating    = (currentTask != TASK_NONE);
+    isAnimFinished = !isAnimating;
 }
 
 void AVLTreeState::undoState() {
-    if (currentSnapIndex > 0) { 
-        currentSnapIndex--;
-        restoreFromSnapshot(snapHistory[currentSnapIndex]);
+    if (opIndex < 0) return;
+    AVLOpSnapshot* cur = opHistory[opIndex];
+
+    if (stepIndex > 0) {
+        // Scrub back one step within this op
+        stepIndex--;
+        applyStep(cur->steps[stepIndex]);
     }
-    else if (opIndex > 0) {
-        opIndex--;
-        restoreFromOpSnapshot(opHistory[opIndex]);
+    else if (stepIndex == 0) {
+        // Go to just before this op = previous op's final state
+        stepIndex = -1;
+        if (opIndex > 0) {
+            opIndex--;
+            AVLOpSnapshot* prev = opHistory[opIndex];
+            avl->clear(); avl->copyTree(*prev->treeCopy);
+            pCode = prev->pCode;
+            currentTask = TASK_NONE; activeCodeLine = -1;
+            searchPointer = nullptr;
+            isAnimating = false; isAnimFinished = true;
+        }
+    }
+    else {
+        // stepIndex == -1, at final state — step into last animation step of this op
+        if (!cur->steps.empty()) {
+            stepIndex = (int)cur->steps.size() - 1;
+            applyStep(cur->steps[stepIndex]);
+        }
+        else if (opIndex > 0) {
+            opIndex--;
+            AVLOpSnapshot* prev = opHistory[opIndex];
+            avl->clear(); avl->copyTree(*prev->treeCopy);
+            pCode = prev->pCode;
+            currentTask = TASK_NONE; activeCodeLine = -1;
+            searchPointer = nullptr;
+            isAnimating = false; isAnimFinished = true;
+        }
     }
 }
 
 void AVLTreeState::redoState() {
-    // Scrub forward using cached memory
-    if (currentSnapIndex < (int)snapHistory.size() - 1) {
-        currentSnapIndex++;
-        restoreFromSnapshot(snapHistory[currentSnapIndex]);
-    }
-    else if (opIndex < (int)opHistory.size() - 1) {
-        opIndex++;
-        restoreFromOpSnapshot(opHistory[opIndex]);
-    }
-}
+    if (opIndex < 0) return;
+    AVLOpSnapshot* cur = opHistory[opIndex];
 
-void AVLTreeState::saveOpState() {
-    AVLOpSnapshot snap;
-    snap.treeCopy = new AVLTree();
-    snap.treeCopy->copyTree(*avl);
-    snap.pCode = pCode;
-    opHistory.push_back(snap);
-    opIndex = (int)opHistory.size() - 1;
+    if (stepIndex >= 0 && stepIndex < (int)cur->steps.size() - 1) {
+        // Scrub forward one step within this op
+        stepIndex++;
+        applyStep(cur->steps[stepIndex]);
+    }
+    else if (stepIndex == (int)cur->steps.size() - 1 && !cur->steps.empty()) {
+        // At last cached step — jump to this op's final state
+        stepIndex = -1;
+        avl->clear(); avl->copyTree(*cur->treeCopy);
+        pCode = cur->pCode;
+        currentTask = TASK_NONE; activeCodeLine = -1;
+        searchPointer = nullptr;
+        isAnimating = false; isAnimFinished = true;
+    }
+    else if (stepIndex == -1) {
+        // At final state — jump to STEP 0 of the next op (not its final state)
+        if (opIndex < (int)opHistory.size() - 1) {
+            opIndex++;
+            cur = opHistory[opIndex];
+            if (!cur->steps.empty()) {
+                // Land on first step of the next op
+                stepIndex = 0;
+                applyStep(cur->steps[0]);
+            } else {
+                // Next op has no steps (e.g. Random) — show its final state
+                stepIndex = -1;
+                avl->clear(); avl->copyTree(*cur->treeCopy);
+                pCode = cur->pCode;
+                currentTask = TASK_NONE; activeCodeLine = -1;
+                searchPointer = nullptr;
+                isAnimating = false; isAnimFinished = true;
+            }
+        }
+    }
 }
 
 void AVLTreeState::handleAnimationStep() {
-    // Dispatch to whichever task is active
-    if (currentTask == TASK_TRAVERSE_INSERT)      stepTraverseInsert();
-    else if (currentTask == TASK_TRAVERSE_SEARCH) stepTraverseSearch();
-    else if (currentTask == TASK_TRAVERSE_DELETE) stepTraverseDelete();
-    else if (currentTask == TASK_HIGHLIGHT_NEW)   stepHighlightNew();
+    if (opIndex != (int)opHistory.size() - 1) return;
+    if (currentTask == TASK_TRAVERSE_INSERT)           stepTraverseInsert();
+    else if (currentTask == TASK_TRAVERSE_SEARCH)      stepTraverseSearch();
+    else if (currentTask == TASK_TRAVERSE_DELETE)      stepTraverseDelete();
+    else if (currentTask == TASK_HIGHLIGHT_NEW)        stepHighlightNew();
     else if (currentTask == TASK_HIGHLIGHT_FOR_DELETE) stepHighlightForDelete();
-    else if (currentTask == TASK_WAIT_FOR_BALANCE) stepWaitForBalance();
-    saveState();
-    if (currentTask == TASK_NONE) {
-        isAnimating    = false;
-        isAnimFinished = true;
-        saveOpState();
-    }
-}
+    else if (currentTask == TASK_WAIT_FOR_BALANCE)     stepWaitForBalance();
 
-void AVLTreeState::restoreFromSnapshot(const AVLSnapshot& snap) {
-    avl->clear();
-    avl->copyTree(*snap.treeCopy);
+    // Append step to current op (never overwrite old ones)
+    AVLOpSnapshot* curOp = opHistory[opIndex];
+    curOp->steps.push_back(captureStep());
+    stepIndex = (int)curOp->steps.size() - 1;
 
-    currentTask        = snap.currentTask;
-    activeCodeLine     = snap.activeCodeLine;
-    searchTargetValue  = snap.searchTargetValue;
-    pCode              = snap.pCode;
-
-    if (currentTask != TASK_NONE && snap.searchPointerKey != -9999) {
-        searchPointer = avl->search(snap.searchPointerKey);
-    } else {
-        searchPointer = nullptr;
-    }
-
-    // Sync UI to the timeline state
     if (currentTask == TASK_NONE) {
         isAnimating = false;
         isAnimFinished = true;
-    } else {
-        isAnimating = true;
-        isAnimFinished = false;
+        // Update this op's final tree
+        curOp->treeCopy->clear();
+        curOp->treeCopy->copyTree(*avl);
+        curOp->pCode = pCode;
+        stepIndex = -1; // sit at final state
     }
-}
-
-void AVLTreeState::restoreFromOpSnapshot(const AVLOpSnapshot& op) {
-    avl->clear();
-    avl->copyTree(*op.treeCopy);
-    pCode = op.pCode;
-    currentTask    = TASK_NONE;
-    activeCodeLine = -1;
-    searchPointer  = nullptr;
-    isAnimating    = false;
-    isAnimFinished = true;
-
-    for (auto& s : snapHistory) delete s.treeCopy;
-    snapHistory.clear();
-    currentSnapIndex = -1;
 }
 
 void AVLTreeState::snapNodePositions(Node* node) {

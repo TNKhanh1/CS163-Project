@@ -269,18 +269,17 @@ void DataStructureState::drawSharedUI()
 	if (!isAutoPlay)
 	{
 		// NEXT Button: Only shows up if there is an active animation
-		if (isAnimating && !isAnimFinished) 
+		if (hasNextStep())
 		{
 			if (DrawButtonText({nextBtnX, stepY}, "Next >>", stepBtnWidth, 35, false))
-			{
 				stepForwardRequested = true;
-			}
 		}
 
 		// BACK Button: Only shows up if there is history to go back to
-		if (DrawButtonText({backBtnX, stepY}, "<< Back", stepBtnWidth, 35, false))
+		if (hasPrevStep())
 		{
-			stepBackwardRequested = true;
+			if (DrawButtonText({backBtnX, stepY}, "<< Back", stepBtnWidth, 35, false))
+				stepBackwardRequested = true;
 		}
 	}
 

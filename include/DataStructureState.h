@@ -15,6 +15,8 @@ public:
 	virtual void draw();
 
 	int NextState;
+	virtual bool hasNextStep() { return isAnimating && !isAnimFinished; }
+	virtual bool hasPrevStep() { return true; }
 
 protected:
 	// Dynamic operation slots
