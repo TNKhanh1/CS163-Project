@@ -17,6 +17,7 @@ public:
 	int NextState;
 	virtual bool hasNextStep() { return isAnimating && !isAnimFinished; }
 	virtual bool hasPrevStep() { return true; }
+	bool overridesStepHandling = false;
 
 protected:
 	// Dynamic operation slots

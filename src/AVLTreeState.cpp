@@ -66,6 +66,7 @@ AVLTreeState::AVLTreeState() : DataStructureState()
     searchPointer     = nullptr;
     animTimer         = 0.0f;
     searchTargetValue = 0;
+    overridesStepHandling = true;
 
     // Push the empty tree as the baseline op[0]
     AVLOpSnapshot* fresh = new AVLOpSnapshot();
@@ -98,7 +99,6 @@ void AVLTreeState::update(float deltaTime)
     DataStructureState::updateSharedUI(deltaTime, mousePos);
     DataStructureState::updateControlPanel(deltaTime, mousePos);
 
-    // Cursor tracking for text input focus changes
     if (activeInputFocus != previousInputFocus) {
         cursorIndex = (activeInputFocus == -1) ? 0 : inputBuffers[activeInputFocus].length();
         textScrollX = 0.0f;
@@ -110,48 +110,46 @@ void AVLTreeState::update(float deltaTime)
         HandleTextInput(inputBuffers[activeInputFocus], false);
     }
 
-    // 1. Back button — always scrub backward through op/step history
+    // Back button
     if (stepBackwardRequested) {
         undoState();
         stepBackwardRequested = false;
     }
 
-    // 2. Next button
+    // Next button
     if (stepForwardRequested) {
-    if (opIndex >= 0) {
-        AVLOpSnapshot* curOp = opHistory[opIndex];
-        bool atLiveTip = (opIndex == (int)opHistory.size() - 1)
-                      && (stepIndex == -1);
+    bool atLiveTip = (opIndex == (int)opHistory.size() - 1)
+                  && (currentTask != TASK_NONE)
+                  && (stepIndex == -1 || stepIndex == (int)opHistory[opIndex]->steps.size() - 1);
 
-        if (atLiveTip && currentTask != TASK_NONE) {
-            handleAnimationStep(); // live tip, compute fresh step
-        } else {
-            redoState(); // everything else — scrub through cached history
-        }
+    if (atLiveTip) {
+        handleAnimationStep();
+    } else {
+        redoState();
     }
     stepForwardRequested = false;
 }
 
+    // AutoPlay
     if (isAutoPlay) {
+    bool atLiveTip = (opIndex == (int)opHistory.size() - 1)
+                  && (currentTask != TASK_NONE)
+                  && (stepIndex == -1 || stepIndex == (int)opHistory[opIndex]->steps.size() - 1);
+    bool hasAnythingToPlay = atLiveTip || hasNextStep();
+
+    if (hasAnythingToPlay) {
         animTimer -= deltaTime * animSpeedMultiplier;
         if (animTimer <= 0.0f) {
-            // Only at the absolute live tip (latest op, final state, animation running)
-            bool atLiveTip = (opIndex == (int)opHistory.size() - 1)
-                        && (stepIndex == -1)
-                        && (currentTask != TASK_NONE);
-
             if (atLiveTip) {
                 handleAnimationStep();
-            } else if (opIndex < (int)opHistory.size() - 1
-                    || (stepIndex >= 0 && stepIndex < (int)opHistory[opIndex]->steps.size() - 1)
-                    || (stepIndex == (int)opHistory[opIndex]->steps.size() - 1)) {
-                redoState(); // scrub cached history forward
+            } else {
+                redoState();
             }
-            animTimer = 0.7f;
+            animTimer = 0.5f;
         }
     }
+}
 
-    // 4. Position lerp — always runs regardless of play mode
     updateTargetLayouts(const_cast<Node*>(avl->rootCall()), 900.0f, 150.0f, 350.0f * zoomMultiplier);
     updateNodePositions(const_cast<Node*>(avl->rootCall()), deltaTime);
 }
@@ -477,12 +475,11 @@ void AVLTreeState::undoState() {
     AVLOpSnapshot* cur = opHistory[opIndex];
 
     if (stepIndex > 0) {
-        // Scrub back one step within this op
         stepIndex--;
         applyStep(cur->steps[stepIndex]);
     }
     else if (stepIndex == 0) {
-        // Go to just before this op = previous op's final state
+        // Go to previous op's final state
         stepIndex = -1;
         if (opIndex > 0) {
             opIndex--;
@@ -494,13 +491,14 @@ void AVLTreeState::undoState() {
             isAnimating = false; isAnimFinished = true;
         }
     }
-    else {
-        // stepIndex == -1, at final state — step into last animation step of this op
+    else { // stepIndex == -1, at final state
         if (!cur->steps.empty()) {
+            // Step into last animation step of this op
             stepIndex = (int)cur->steps.size() - 1;
             applyStep(cur->steps[stepIndex]);
         }
         else if (opIndex > 0) {
+            // No steps (e.g. Random op), jump to previous op
             opIndex--;
             AVLOpSnapshot* prev = opHistory[opIndex];
             avl->clear(); avl->copyTree(*prev->treeCopy);
@@ -517,12 +515,12 @@ void AVLTreeState::redoState() {
     AVLOpSnapshot* cur = opHistory[opIndex];
 
     if (stepIndex >= 0 && stepIndex < (int)cur->steps.size() - 1) {
-        // Scrub forward one step within this op
+        // Scrub forward within cached steps
         stepIndex++;
         applyStep(cur->steps[stepIndex]);
     }
-    else if (stepIndex == (int)cur->steps.size() - 1 && !cur->steps.empty()) {
-        // At last cached step — jump to this op's final state
+    else if (stepIndex >= 0 && stepIndex == (int)cur->steps.size() - 1) {
+        // At last cached step — go to this op's final state
         stepIndex = -1;
         avl->clear(); avl->copyTree(*cur->treeCopy);
         pCode = cur->pCode;
@@ -530,30 +528,32 @@ void AVLTreeState::redoState() {
         searchPointer = nullptr;
         isAnimating = false; isAnimFinished = true;
     }
-    else if (stepIndex == -1) {
-        // At final state — jump to STEP 0 of the next op (not its final state)
-        if (opIndex < (int)opHistory.size() - 1) {
-            opIndex++;
-            cur = opHistory[opIndex];
-            if (!cur->steps.empty()) {
-                // Land on first step of the next op
-                stepIndex = 0;
-                applyStep(cur->steps[0]);
-            } else {
-                // Next op has no steps (e.g. Random) — show its final state
-                stepIndex = -1;
-                avl->clear(); avl->copyTree(*cur->treeCopy);
-                pCode = cur->pCode;
-                currentTask = TASK_NONE; activeCodeLine = -1;
-                searchPointer = nullptr;
-                isAnimating = false; isAnimFinished = true;
-            }
+    else if (stepIndex == -1 && opIndex < (int)opHistory.size() - 1) {
+        // At final state — move to next op
+        opIndex++;
+        cur = opHistory[opIndex];
+        if (!cur->steps.empty()) {
+            // Land on first step of the next op
+            stepIndex = 0;
+            applyStep(cur->steps[0]);
+        } else {
+            // No steps (Random/Clear) — show final state directly
+            stepIndex = -1;
+            avl->clear(); avl->copyTree(*cur->treeCopy);
+            pCode = cur->pCode;
+            currentTask = TASK_NONE; activeCodeLine = -1;
+            searchPointer = nullptr;
+            isAnimating = false; isAnimFinished = true;
         }
     }
+    // else: at live tip final state with no next op — nothing to do
 }
 
 void AVLTreeState::handleAnimationStep() {
+    // Only compute fresh steps at the live tip
     if (opIndex != (int)opHistory.size() - 1) return;
+    if (stepIndex >= 0 && stepIndex < (int)opHistory[opIndex]->steps.size() - 1) return;
+
     if (currentTask == TASK_TRAVERSE_INSERT)           stepTraverseInsert();
     else if (currentTask == TASK_TRAVERSE_SEARCH)      stepTraverseSearch();
     else if (currentTask == TASK_TRAVERSE_DELETE)      stepTraverseDelete();
@@ -561,19 +561,16 @@ void AVLTreeState::handleAnimationStep() {
     else if (currentTask == TASK_HIGHLIGHT_FOR_DELETE) stepHighlightForDelete();
     else if (currentTask == TASK_WAIT_FOR_BALANCE)     stepWaitForBalance();
 
-    // Append step to current op (never overwrite old ones)
     AVLOpSnapshot* curOp = opHistory[opIndex];
     curOp->steps.push_back(captureStep());
     stepIndex = (int)curOp->steps.size() - 1;
 
     if (currentTask == TASK_NONE) {
-        isAnimating = false;
-        isAnimFinished = true;
-        // Update this op's final tree
+        isAnimating = false; isAnimFinished = true;
         curOp->treeCopy->clear();
         curOp->treeCopy->copyTree(*avl);
         curOp->pCode = pCode;
-        stepIndex = -1; // sit at final state
+        stepIndex = -1;
     }
 }
 
@@ -588,11 +585,9 @@ void AVLTreeState::stepTraverseInsert() {
     if (activeCodeLine == 0) {
         if (searchTargetValue < searchPointer->key) {
             activeCodeLine = 3; // Highlight "node->left = insert(...)"
-            animTimer = 0.5f;
         } 
         else if (searchTargetValue > searchPointer->key) {
             activeCodeLine = 5; // Highlight "node->right = insert(...)"
-            animTimer = 0.5f;
         }
         else {
             // Duplicate found (cancel insertion)
@@ -612,11 +607,9 @@ void AVLTreeState::stepTraverseInsert() {
                 searchPointer = searchPointer->left;
                 const_cast<Node*>(searchPointer)->color = YELLOW;
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
             } else {
                 // Reached the bottom, insert it!
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
                 currentTask = TASK_HIGHLIGHT_NEW;
             }
         } 
@@ -626,11 +619,9 @@ void AVLTreeState::stepTraverseInsert() {
                 searchPointer = searchPointer->right;
                 const_cast<Node*>(searchPointer)->color = YELLOW;
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
             } else {
                 // Reached the bottom, insert it!
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
                 currentTask = TASK_HIGHLIGHT_NEW;
             }
         }
@@ -648,11 +639,9 @@ void AVLTreeState::stepTraverseSearch() {
         }
         else if (searchTargetValue < searchPointer->key) {
             activeCodeLine = 4; // Highlight "return search(node->left, key);"
-            animTimer = 0.5f;
         } 
         else if (searchTargetValue > searchPointer->key) {
             activeCodeLine = 5; // Highlight "return search(node->right, key);"
-            animTimer = 0.5f;
         }
     }
     else if (activeCodeLine == 4 || activeCodeLine == 5) {
@@ -665,7 +654,6 @@ void AVLTreeState::stepTraverseSearch() {
                 searchPointer = searchPointer->left;
                 const_cast<Node*>(searchPointer)->color = YELLOW;
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
             } else {
                 // Not found!
                 currentErrorSlot = 3;
@@ -681,7 +669,6 @@ void AVLTreeState::stepTraverseSearch() {
                 searchPointer = searchPointer->right;
                 const_cast<Node*>(searchPointer)->color = YELLOW;
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
             } else {
                 // Not found!
                 currentErrorSlot = 3;
@@ -701,15 +688,12 @@ void AVLTreeState::stepTraverseDelete() {
             const_cast<Node*>(searchPointer)->color = GREEN;
             currentTask = TASK_HIGHLIGHT_FOR_DELETE;
             activeCodeLine = 6; // Highlight the "else { /* Delete... */" line
-            animTimer = 0.5f;
         }
         else if (searchTargetValue < searchPointer->key) {
             activeCodeLine = 3; // Highlight "node->left = deleteNode(...)"
-            animTimer = 0.5f;
         } 
         else if (searchTargetValue > searchPointer->key) {
             activeCodeLine = 5; // Highlight "node->right = deleteNode(...)"
-            animTimer = 0.5f;
         }
     }
     else if (activeCodeLine == 3 || activeCodeLine == 5) {
@@ -722,7 +706,6 @@ void AVLTreeState::stepTraverseDelete() {
                 searchPointer = searchPointer->left;
                 const_cast<Node*>(searchPointer)->color = YELLOW;
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
             } else {
                 // Not found!
                 currentErrorSlot = 2;
@@ -738,7 +721,6 @@ void AVLTreeState::stepTraverseDelete() {
                 searchPointer = searchPointer->right;
                 const_cast<Node*>(searchPointer)->color = YELLOW;
                 activeCodeLine = 0; // Loop back to the function signature!
-                animTimer = 0.5f;
             } else {
                 // Not found!
                 currentErrorSlot = 2;
@@ -755,7 +737,6 @@ void AVLTreeState::stepHighlightNew() {
     if (activeCodeLine == 0) {
         // We just highlighted the signature. Now highlight the base case!
         activeCodeLine = 1; // "if (node == NULL) return new Node(key);"
-        animTimer = 0.5f;
     } 
     else if (activeCodeLine == 1) {
         // Time to actually insert the node into the backend!
@@ -768,7 +749,6 @@ void AVLTreeState::stepHighlightNew() {
         // Move on to balancing
         currentTask = TASK_WAIT_FOR_BALANCE;
         activeCodeLine = -1;
-        animTimer = 0.5f;
     }
 }
 void AVLTreeState::stepHighlightForDelete() {
@@ -778,7 +758,6 @@ void AVLTreeState::stepHighlightForDelete() {
     // Move to balancing phase
     currentTask = TASK_WAIT_FOR_BALANCE;
     activeCodeLine = -1;
-    animTimer = 0.5f;
 }
 void AVLTreeState::stepWaitForBalance() {
     // Try to do exactly ONE rotation.
@@ -789,13 +768,11 @@ void AVLTreeState::stepWaitForBalance() {
         if (didRotate == 1 || didRotate == 4) {
             pCode = 4;
             activeCodeLine = 0; // Highlight function signature first
-            animTimer = 0.5f;
         }
         // If we did a LEFT rotate (RR Case, or first half of LR Case)
         else if (didRotate == 2 || didRotate == 3) {
             pCode = 5;
             activeCodeLine = 0; // Highlight function signature first
-            animTimer = 0.5f;
         }
     } 
     else {
