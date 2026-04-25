@@ -2,7 +2,6 @@
 #include <random>
 
 
-
 static const std::vector<std::string> pseudoTable[] = {
     { "// Select an operation..." },                          // 0: idle
     { "Node* insert(Node* node, int key) {",                 // 1: insert
@@ -66,11 +65,18 @@ AVLTreeState::AVLTreeState() : DataStructureState()
     activeCodeLine = -1;
     searchPointer = nullptr;
     animTimer = 0.0f;
+    searchTargetValue = 0;
+
+    saveState();
 }
 
 AVLTreeState::~AVLTreeState()
 {
     delete avl;
+    for (auto& snap : snapHistory) {
+        delete snap.treeCopy;
+    }
+    snapHistory.clear();
 }
 
 void AVLTreeState::loadAssets()
@@ -96,40 +102,45 @@ void AVLTreeState::update(float deltaTime)
         HandleTextInput(inputBuffers[activeInputFocus], false);
     }
 
-    if (currentTask != TASK_NONE) {
-        
-        bool stepTriggered = false;
+    bool stepTriggered = false;
 
-        if (isAutoPlay) {
-            // AUTO MODE: Timer handles the trigger
-            animTimer -= deltaTime;
-            if (animTimer <= 0.0f) {
-                stepTriggered = true;
-                animTimer = 0.5f; // Reset for next frame
-            }
-        } else {
-            // MANUAL MODE: UI Buttons handle the trigger
-            // (Assuming you have UI buttons drawn elsewhere that set these flags)
-            if (stepForwardRequested) {
-                stepTriggered = true;
-                stepForwardRequested = false;
-            }
-            if (stepBackwardRequested) {
-                undoState(); 
-                stepBackwardRequested = false;
-            }
+    // 1. Check UI Buttons (OUTSIDE of the TASK_NONE check so they always work)
+    if (stepBackwardRequested) {
+        undoState();
+        stepBackwardRequested = false;
+    }
+
+    if (stepForwardRequested) {
+        if (currentSnapIndex < (int)snapHistory.size() - 1) {
+            redoState(); // Scrub forward from timeline
+        } else if (currentTask != TASK_NONE) {
+            stepTriggered = true; // Calculate next fresh step
         }
+        stepForwardRequested = false;
+    }
 
-        // ROUTE THE TRIGGER: Call the correct helper function
-        if (stepTriggered) {
-            switch (currentTask) {
-                case TASK_TRAVERSE_INSERT:   stepTraverseInsert(); break;
-                case TASK_TRAVERSE_SEARCH:   stepTraverseSearch(); break;
-                case TASK_TRAVERSE_DELETE:   stepTraverseDelete(); break;
-                case TASK_HIGHLIGHT_NEW:     stepHighlightNew(); break;
-                case TASK_HIGHLIGHT_FOR_DELETE: stepHighlightForDelete(); break;
-                case TASK_WAIT_FOR_BALANCE:  stepWaitForBalance(); break;
+    // 2. Check AutoPlay Timer
+    if (isAutoPlay) {
+        animTimer -= deltaTime;
+        if (animTimer <= 0.0f) {
+            if (currentSnapIndex < (int)snapHistory.size() - 1) {
+                redoState(); // Auto-scrub forward through timeline
+            } else if (currentTask != TASK_NONE) {
+                stepTriggered = true; // Auto-calculate next fresh step
             }
+            animTimer = 0.5f; // Reset for next frame
+        }
+    }
+
+    // 3. Route the Trigger (ONLY if a fresh step is needed)
+    if (stepTriggered && currentTask != TASK_NONE) {
+        switch (currentTask) {
+            case TASK_TRAVERSE_INSERT:   stepTraverseInsert(); break;
+            case TASK_TRAVERSE_SEARCH:   stepTraverseSearch(); break;
+            case TASK_TRAVERSE_DELETE:   stepTraverseDelete(); break;
+            case TASK_HIGHLIGHT_NEW:     stepHighlightNew(); break;
+            case TASK_HIGHLIGHT_FOR_DELETE: stepHighlightForDelete(); break;
+            case TASK_WAIT_FOR_BALANCE:  stepWaitForBalance(); break;
         }
     }
 
@@ -301,29 +312,46 @@ void AVLTreeState::DrawSubMenuContent()
 
 void AVLTreeState::onExecuteOp(MainOp op)
 {
-    while (currentTask != TASK_NONE) {
-        handleAnimationStep();
+    if (!opHistory.empty()) {
+        const AVLOpSnapshot& latest = opHistory.back();
+        avl->clear();
+        avl->copyTree(*latest.treeCopy);
+        pCode = latest.pCode;
     }
+    opIndex = (int)opHistory.size() - 1;
+    
+    currentTask = TASK_NONE; // the latest op snapshot is already post-animation
+    isAnimating = false;
+    isAnimFinished = true;
+    searchPointer = nullptr;
+
+    for (auto& s : snapHistory) delete s.treeCopy;
+    snapHistory.clear();
+    currentSnapIndex = -1;
 
     if (op == OP_SLOT4) {
         // 1. Wipe the tree data
-        if (avl != nullptr) avl->clear();
+        avl->clear();
         pCode = 0;
         activeCodeLine = -1;
-        for (auto& snap : snapHistory) {
-            delete snap.treeCopy;
+        for (auto& op : opHistory) {
+            delete op.treeCopy;
         }
-        snapHistory.clear();
+        opHistory.clear();
+        opIndex = -1;
 
         // 2. Reset the visualizer states so it doesn't look for nodes that no longer exist
         currentTask = TASK_NONE;
         isAnimating = false;
         isAnimFinished = true;
         animTimer = 0.0f;
+        currentSnapIndex = -1;
 
         // 3. Clear any error messages or active inputs
         inputErrorMsg = "";
         activeInputFocus = -1;
+
+        saveOpState();
         return;
     }
     else if (op == OP_SLOT5) {
@@ -348,16 +376,16 @@ void AVLTreeState::onExecuteOp(MainOp op)
             }
         }
         
-        // 5. Reset the visualizer states
+        Node* r = const_cast<Node*>(avl->rootCall());
+        updateTargetLayouts(r, 900.0f, 150.0f, 350.0f * zoomMultiplier);
+        snapNodePositions(r);
+        pCode = 7; activeCodeLine = -1;
         currentTask = TASK_NONE;
-        isAnimating = false;
-        animTimer = 0.0f;
-        pCode = 7;
-        activeCodeLine = -1;
-        
-        // 6. Clear any error messages or active inputs
-        inputErrorMsg = "";
-        activeInputFocus = -1;
+        isAnimating = false; animTimer = 0.0f;
+        inputErrorMsg = ""; activeInputFocus = -1;
+
+        // Save the generated tree as a new op
+        saveOpState();
         return;
     }
     // else if (op == OP_SLOT5) {
@@ -420,7 +448,6 @@ void AVLTreeState::onExecuteOp(MainOp op)
 			
     // Reset colors before starting a new operation!
     resetNodeColors(const_cast<Node*>(avl->rootCall()));
-    int curOp = 0;
     int id = 0;
     if (op == OP_SLOT1) id = 1;
     else if (op == OP_SLOT2) id = 2;
@@ -497,46 +524,51 @@ void AVLTreeState::onExecuteOp(MainOp op)
 }
 
 void AVLTreeState::saveState() {
-    AVLSnapshot snap;
-    snap.currentTask    = currentTask;
-    snap.activeCodeLine = activeCodeLine;
-    snap.searchTargetValue = searchTargetValue;
-    snap.pCode     = pCode;
-    snap.searchPointerKey = (searchPointer != nullptr) ? searchPointer->key : -9999;
 
-    // Deep copy the tree using your existing copyTree()
+    AVLSnapshot snap;
+    snap.currentTask       = currentTask;
+    snap.activeCodeLine    = activeCodeLine;
+    snap.searchTargetValue = searchTargetValue;
+    snap.pCode             = pCode;
+    snap.searchPointerKey  = (searchPointer != nullptr) ? searchPointer->key : -9999;
+    
     snap.treeCopy = new AVLTree();
     snap.treeCopy->copyTree(*avl);
-
+    
     snapHistory.push_back(snap);
+    currentSnapIndex = snapHistory.size() - 1; // Move index to the very end
 }
 
 void AVLTreeState::undoState() {
-    if (snapHistory.empty()) return;
-
-    AVLSnapshot snap = snapHistory.back();
-    snapHistory.pop_back();
-
-    // Restore tree
-    avl->clear();
-    avl->copyTree(*snap.treeCopy);
-    delete snap.treeCopy;
-
-    // Restore visualizer state
-    currentTask        = snap.currentTask;
-    activeCodeLine     = snap.activeCodeLine;
-    searchTargetValue  = snap.searchTargetValue;
-    pCode         = snap.pCode;
-
-    // Restore searchPointer to the correct node in the restored tree
-    if (currentTask != TASK_NONE&& snap.searchPointerKey != -9999) {
-        searchPointer = avl->search(snap.searchPointerKey);
-    } else {
-        searchPointer = nullptr;
+    if (currentSnapIndex > 0) { 
+        currentSnapIndex--;
+        restoreFromSnapshot(snapHistory[currentSnapIndex]);
     }
+    else if (opIndex > 0) {
+        opIndex--;
+        restoreFromOpSnapshot(opHistory[opIndex]);
+    }
+}
 
-    isAnimating    = true;
-    isAnimFinished = false;
+void AVLTreeState::redoState() {
+    // Scrub forward using cached memory
+    if (currentSnapIndex < (int)snapHistory.size() - 1) {
+        currentSnapIndex++;
+        restoreFromSnapshot(snapHistory[currentSnapIndex]);
+    }
+    else if (opIndex < (int)opHistory.size() - 1) {
+        opIndex++;
+        restoreFromOpSnapshot(opHistory[opIndex]);
+    }
+}
+
+void AVLTreeState::saveOpState() {
+    AVLOpSnapshot snap;
+    snap.treeCopy = new AVLTree();
+    snap.treeCopy->copyTree(*avl);
+    snap.pCode = pCode;
+    opHistory.push_back(snap);
+    opIndex = (int)opHistory.size() - 1;
 }
 
 void AVLTreeState::handleAnimationStep() {
@@ -547,15 +579,62 @@ void AVLTreeState::handleAnimationStep() {
     else if (currentTask == TASK_HIGHLIGHT_NEW)   stepHighlightNew();
     else if (currentTask == TASK_HIGHLIGHT_FOR_DELETE) stepHighlightForDelete();
     else if (currentTask == TASK_WAIT_FOR_BALANCE) stepWaitForBalance();
-    else {
+    saveState();
+    if (currentTask == TASK_NONE) {
         isAnimating    = false;
         isAnimFinished = true;
-        currentTask    = TASK_NONE;
+        saveOpState();
     }
 }
 
+void AVLTreeState::restoreFromSnapshot(const AVLSnapshot& snap) {
+    avl->clear();
+    avl->copyTree(*snap.treeCopy);
+
+    currentTask        = snap.currentTask;
+    activeCodeLine     = snap.activeCodeLine;
+    searchTargetValue  = snap.searchTargetValue;
+    pCode              = snap.pCode;
+
+    if (currentTask != TASK_NONE && snap.searchPointerKey != -9999) {
+        searchPointer = avl->search(snap.searchPointerKey);
+    } else {
+        searchPointer = nullptr;
+    }
+
+    // Sync UI to the timeline state
+    if (currentTask == TASK_NONE) {
+        isAnimating = false;
+        isAnimFinished = true;
+    } else {
+        isAnimating = true;
+        isAnimFinished = false;
+    }
+}
+
+void AVLTreeState::restoreFromOpSnapshot(const AVLOpSnapshot& op) {
+    avl->clear();
+    avl->copyTree(*op.treeCopy);
+    pCode = op.pCode;
+    currentTask    = TASK_NONE;
+    activeCodeLine = -1;
+    searchPointer  = nullptr;
+    isAnimating    = false;
+    isAnimFinished = true;
+
+    for (auto& s : snapHistory) delete s.treeCopy;
+    snapHistory.clear();
+    currentSnapIndex = -1;
+}
+
+void AVLTreeState::snapNodePositions(Node* node) {
+    if (!node) return;
+    node->position = node->targetPosition;
+    snapNodePositions(node->left);
+    snapNodePositions(node->right);
+}
+
 void AVLTreeState::stepTraverseInsert() {
-    saveState();
     if (activeCodeLine == 0) {
         if (searchTargetValue < searchPointer->key) {
             activeCodeLine = 3; // Highlight "node->left = insert(...)"
@@ -608,7 +687,6 @@ void AVLTreeState::stepTraverseInsert() {
     }
 }
 void AVLTreeState::stepTraverseSearch() {
-    saveState();
     if (activeCodeLine == 0) {
         // Check if we found the node or if it's NULL
         if (searchTargetValue == searchPointer->key) {
@@ -666,7 +744,6 @@ void AVLTreeState::stepTraverseSearch() {
     }
 }
 void AVLTreeState::stepTraverseDelete() {
-    saveState();
     if (activeCodeLine == 0) {
         // Check if we found the node
         if (searchTargetValue == searchPointer->key) {
@@ -724,7 +801,6 @@ void AVLTreeState::stepTraverseDelete() {
     }
 }
 void AVLTreeState::stepHighlightNew() {
-    saveState();
     // Time is up! Reset the colors and clear the task.
     if (activeCodeLine == 0) {
         // We just highlighted the signature. Now highlight the base case!
@@ -741,50 +817,43 @@ void AVLTreeState::stepHighlightNew() {
         
         // Move on to balancing
         currentTask = TASK_WAIT_FOR_BALANCE;
+        activeCodeLine = -1;
         animTimer = 0.5f;
     }
 }
 void AVLTreeState::stepHighlightForDelete() {
-    saveState();
     // Time to delete the node
     avl->delNode(searchTargetValue);
     
     // Move to balancing phase
     currentTask = TASK_WAIT_FOR_BALANCE;
+    activeCodeLine = -1;
     animTimer = 0.5f;
 }
 void AVLTreeState::stepWaitForBalance() {
-    saveState();
-    // If we just showed the function signature, now highlight the swap
-    if (activeCodeLine == 0) {
-        activeCodeLine = -1;
-        animTimer = 0.5f;
+    // Try to do exactly ONE rotation.
+    int didRotate = avl->balance();
+    
+    if (didRotate != 0) {
+        // A rotation happened! Show the function signature first
+        if (didRotate == 1 || didRotate == 4) {
+            pCode = 4;
+            activeCodeLine = 0; // Highlight function signature first
+            animTimer = 0.5f;
+        }
+        // If we did a LEFT rotate (RR Case, or first half of LR Case)
+        else if (didRotate == 2 || didRotate == 3) {
+            pCode = 5;
+            activeCodeLine = 0; // Highlight function signature first
+            animTimer = 0.5f;
+        }
     } 
     else {
-        // Try to do exactly ONE rotation.
-        int didRotate = avl->balance();
-        
-        if (didRotate != 0) {
-            // A rotation happened! Show the function signature first
-            if (didRotate == 1 || didRotate == 4) {
-                pCode = 4;
-                activeCodeLine = 0; // Highlight function signature first
-                animTimer = 0.5f;
-            }
-            // If we did a LEFT rotate (RR Case, or first half of LR Case)
-            else if (didRotate == 2 || didRotate == 3) {
-                pCode = 5;
-                activeCodeLine = 0; // Highlight function signature first
-                animTimer = 0.5f;
-            }
-        } 
-        else {
-            // Tree is completely balanced! Clear task and reset the code box.
-            currentTask = TASK_NONE;
-            animTimer = 0.0f;
-            pCode = 6;
-            activeCodeLine = -1; // Turn off highlight
-        }
+        // Tree is completely balanced! Clear task and reset the code box.
+        currentTask = TASK_NONE;
+        animTimer = 0.0f;
+        pCode = 6;
+        activeCodeLine = -1; // Turn off highlight
     }
 }
 

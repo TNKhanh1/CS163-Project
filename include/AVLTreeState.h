@@ -14,6 +14,12 @@ struct AVLSnapshot {
     AVLTree* treeCopy;
 };
 
+struct AVLOpSnapshot { // For undoing individual operations without animation
+    AVLTree* treeCopy;
+    int pCode;
+    std::vector<AVLStepSnapshot*> steps;
+};
+
 class AVLTreeState : public DataStructureState 
 {
 public:
@@ -44,14 +50,20 @@ private:
     int activeInputFocus;
 
     // AVL-specific state variables for manual animation control
-    void saveState() override;
+    AVLStepSnapshot* captureStep();
+    void applyStep(AVLStepSnapshot* s);
     void undoState() override;
+    void redoState();
     void handleAnimationStep() override;
 
     std::vector<std::string> pseudoCode;
     int pCode = -1;
     int activeCodeLine;
     std::vector<AVLSnapshot> snapHistory;
+    int currentSnapIndex = -1;
+    std::vector<AVLOpSnapshot> opHistory;
+    int opIndex = -1;
+    void snapNodePositions(Node* node);
 
     // Tasks for highlighting and pseudo-code control
     static const int TASK_NONE = 0;
