@@ -83,40 +83,34 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 	}
 
 	// 1. Centralized Animation & Undo Trigger
-	if (!overridesStepHandling)
+	if (isAutoPlay)
 	{
-		if (isAutoPlay)
+		// AUTO MODE: Progress animation automatically based on timer
+		if (isAnimating && !isAnimFinished && CheckStepReady(deltaTime, 0.7f))
 		{
-			// AUTO MODE: Progress animation automatically based on timer
-			if (isAnimating && !isAnimFinished && CheckStepReady(deltaTime, 0.7f))
+			saveState();
+			handleAnimationStep();
+		}
+	}
+	else 
+	{
+		// MANUAL MODE
+		if (stepForwardRequested)
+		{
+			// Only allow forward steps if an animation is actually running
+			if (isAnimating && !isAnimFinished)
 			{
 				saveState();
 				handleAnimationStep();
 			}
+			stepForwardRequested = false;
 		}
-		else 
+		
+		if (stepBackwardRequested)
 		{
-			// MANUAL MODE
-			if (!overridesStepHandling)
-			{
-				if (stepForwardRequested)
-				{
-					// Only allow forward steps if an animation is actually running
-					if (isAnimating && !isAnimFinished)
-					{
-						saveState();
-						handleAnimationStep();
-					}
-					stepForwardRequested = false;
-				}
-				
-				if (stepBackwardRequested)
-				{
-					// You can always step backwards as long as there's history, even if not currently animating
-					undoState();
-					stepBackwardRequested = false;
-				}
-			}
+			// You can always step backwards as long as there's history, even if not currently animating
+			undoState();
+			stepBackwardRequested = false;
 		}
 	}
 
@@ -263,29 +257,27 @@ void DataStructureState::drawSharedUI()
 	const char* modeLabel = isAutoPlay ? "AUTO" : "MANUAL";
 	if (DrawButtonText({modeToggleX, stepY}, modeLabel, buttonWidth, 35, !isAutoPlay))
 	{
-		bool wasManual = !isAutoPlay;
 		isAutoPlay = !isAutoPlay;
-		// When switching from Manual to Auto, notify the child state to complete the animation
-		if (wasManual) {
-			onModeSwitch(true);
-		}
 	}
 	
 	// 2. Next & Back Buttons (Only visible during Manual mode + Animating)
 	if (!isAutoPlay)
 	{
 		// NEXT Button: Only shows up if there is an active animation
-		if (hasNextStep())
+		if (DrawButtonText({nextBtnX, stepY}, "Next >>", stepBtnWidth, 35, false))
 		{
-			if (DrawButtonText({nextBtnX, stepY}, "Next >>", stepBtnWidth, 35, false))
+			if (hasNextStep())
+			{
 				stepForwardRequested = true;
+			}
 		}
-
 		// BACK Button: Only shows up if there is history to go back to
-		if (hasPrevStep())
+		if (DrawButtonText({backBtnX, stepY}, "<< Back", stepBtnWidth, 35, false))
 		{
-			if (DrawButtonText({backBtnX, stepY}, "<< Back", stepBtnWidth, 35, false))
+			if (hasPrevStep())
+			{
 				stepBackwardRequested = true;
+			}
 		}
 	}
 

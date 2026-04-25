@@ -16,7 +16,7 @@ public:
 
 	int NextState;
 	virtual bool hasNextStep() { return isAnimating && !isAnimFinished; }
-	virtual bool hasPrevStep() { return true; }
+	virtual bool hasPrevStep() { return historyCount > 0; }
 	bool overridesStepHandling = false;
 
 protected:
@@ -69,6 +69,21 @@ protected:
 	std::string inputErrorMsg;
 	float inputErrorTimer;
 	int currentErrorSlot; 
+
+	int historyCount;
+
+	void beginAnimation()
+	{
+		isAnimating = true;
+		isAnimFinished = false;
+		historyCount = 0;
+		animTimer = 0.0f;
+	}
+
+	void endAnimation()
+	{
+		isAnimFinished = true;
+	}
 
 	// UI Logic & Animation Trigger
 	void updateSharedUI(float deltaTime, Vector2 mousePos); 
