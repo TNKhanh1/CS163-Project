@@ -243,13 +243,13 @@ void AVLTreeState::DrawSubMenuContent()
 
     switch (activeMainOp) {
         case OP_SLOT1: // Insert
-            DrawLabel({subX, startY}, "Value=");
+            DrawLabel({subX - 85, startY}, "Value=");
 
             // Draw the text box
-            if (DrawTextBox({subX + 80, startY}, inputBuffers[1], activeInputFocus == 1, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 1;
+            if (DrawTextBox({subX - 10, startY}, inputBuffers[1], activeInputFocus == 1, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 1;
 
             // Draw the "GO" button. If clicked, manually trigger onExecuteOp!
-            if (DrawButtonText({subX + 190, startY}, "GO", 50, mainHeight, false)) {
+            if (DrawButtonText({subX + 100, startY}, "GO", 50, mainHeight, false)) {
                 if (checkBuffer(inputBuffers[1], 1)) {
                     try {		
                         onExecuteOp(OP_SLOT1);
@@ -265,11 +265,11 @@ void AVLTreeState::DrawSubMenuContent()
 
         case OP_SLOT2: // Delete
             // Shift the Y position down for the 2nd slot
-            DrawLabel({subX, startY + mainHeight + gap}, "Value=");
+            DrawLabel({subX - 85, startY + mainHeight + gap}, "Value=");
 
-            if (DrawTextBox({subX + 80, startY + mainHeight + gap}, inputBuffers[2], activeInputFocus == 2, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 2;
+            if (DrawTextBox({subX - 10, startY + mainHeight + gap}, inputBuffers[2], activeInputFocus == 2, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 2;
 
-            if (DrawButtonText({subX + 190, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
+            if (DrawButtonText({subX + 100, startY + mainHeight + gap}, "GO", 50, mainHeight, false)) {
                 if (checkBuffer(inputBuffers[2], 2)) {
                     try {		
                         onExecuteOp(OP_SLOT2);
@@ -285,11 +285,11 @@ void AVLTreeState::DrawSubMenuContent()
 
         case OP_SLOT3: // Search
             // Shift the Y position down for the 3rd slot
-            DrawLabel({subX, startY + 2 * (mainHeight + gap)}, "Value=");
+            DrawLabel({subX - 85, startY + 2 * (mainHeight + gap)}, "Value=");
 
-            if (DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffers[3], activeInputFocus == 3, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 3; 
+            if (DrawTextBox({subX - 10, startY + 2 * (mainHeight + gap)}, inputBuffers[3], activeInputFocus == 3, 100, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 3; 
             
-            if (DrawButtonText({subX + 190, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
+            if (DrawButtonText({subX + 100, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) {
                 if (checkBuffer(inputBuffers[3], 3)) {
                     try {		
                         onExecuteOp(OP_SLOT3);
@@ -306,7 +306,7 @@ void AVLTreeState::DrawSubMenuContent()
         case OP_SLOT4: // Clear
             // Shift the Y position down for the 4th slot
 
-            if (DrawButtonText({subX + 90, startY + 3 * (mainHeight + gap)}, "ACCEPT CLEAR", 150, mainHeight, false)) {
+            if (DrawButtonText({subX - 85, startY + 3 * (mainHeight + gap)}, "ACCEPT CLEAR", 160, mainHeight, false)) {
                 onExecuteOp(OP_SLOT4);
             }
             break;
@@ -314,7 +314,7 @@ void AVLTreeState::DrawSubMenuContent()
         case OP_SLOT5: // Random
             // Shift the Y position down for the 5th slot
 
-            if (DrawButtonText({subX + 65, startY + 4 * (mainHeight + gap)}, "GENERATE RANDOM", 200, mainHeight, false)) {
+            if (DrawButtonText({subX  - 85, startY + 4 * (mainHeight + gap)}, "GENERATE RANDOM", 210, mainHeight, false)) {
                 onExecuteOp(OP_SLOT5);
             }
             break;
