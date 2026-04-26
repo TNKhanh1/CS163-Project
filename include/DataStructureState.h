@@ -19,6 +19,9 @@ public:
 	virtual bool hasPrevStep() { return historyCount > 0; }
 	bool overridesStepHandling = false;
 
+	void drawPseudoCode();
+
+
 protected:
 	// Dynamic operation slots
 	enum MainOp { 
@@ -109,4 +112,8 @@ protected:
 	bool DrawButtonText(Vector2 pos, const char* text, float width, float height, bool isSelected = false);
 	bool DrawTextBox(Vector2 pos, std::string& text, bool isActive, float width, float height, int cursorIdx, float& scrollX, bool cursorVis);
 	void DrawLabel(Vector2 pos, const char* text);
+
+	//Pseudocode drawing
+	int activeCodeLine;
+	std::vector<std::string> pseudoCode;
 };

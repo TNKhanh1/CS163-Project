@@ -61,9 +61,7 @@ private:
     void handleAnimationStep() override;
     void snapNodePositions(Node* node);
 
-    std::vector<std::string> pseudoCode;
     int pCode = -1;
-    int activeCodeLine;
     std::vector<AVLOpSnapshot*> opHistory;
     int stepIndex = -1;
     int opIndex = -1;

@@ -466,37 +466,7 @@ void MSTState::draw()
         DrawTextEx(numberFont, vText, {pos.x - textSize.x / 2.0f, pos.y - textSize.y / 2.0f}, fontSize, 1.0f, BLACK);
     }
 
-    float pcX = 1315.0f, pcY = 150.0f;
-    float pcWidth = 450.0f, pcHeight = 450.0f;
-    DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
-    DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
-    DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
-    
-    float lineHeight = 28.0f;
-    float textPadding = 15.0f;
-    for (int i = 0; i < (int)pseudoCode.size(); i++) {
-        Color textCol = BLACK;
-        if (i == activeCodeLine) {
-            DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
-            textCol = RED;
-        }
-        
-        std::string line = pseudoCode[i];
-        if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
-            size_t spacePos = line.find_last_of(' ', 60);
-            if (spacePos != std::string::npos) {
-                std::string first = line.substr(0, spacePos);
-                std::string second = line.substr(spacePos + 1);
-                DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-                DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
-            } else {
-                DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-            }
-        } else {
-            DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-        }
-    }
-    
+    drawPseudoCode();
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Create", "Insert", "Kruskal", "Prim"});
 }

@@ -534,6 +534,49 @@ void DataStructureState::DrawLabel(Vector2 pos, const char* text)
 	DrawTextEx(listFont, text, {pos.x, pos.y + 10.0f}, fontSize, 1.0f, BLACK);
 }
 
+void DataStructureState::drawPseudoCode()
+{
+    if (pseudoCode.empty()) return; // Don't draw if there's no code
+
+    float pcX = 1315.0f, pcY = 150.0f;
+    float pcWidth = 450.0f, pcHeight = 450.0f;
+    
+    // Draw background for pseudocode
+    DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
+    DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
+    DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
+    
+    // Draw each line of pseudocode with active line highlighting
+    float lineHeight = 28.0f;
+    float textPadding = 15.0f;
+    for (int i = 0; i < (int)pseudoCode.size(); i++) {
+        Color textCol = BLACK;
+        
+        // Highlight active line if it matches the current step
+        if (i == activeCodeLine) {
+            DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
+            textCol = RED;
+        }
+        
+        std::string line = pseudoCode[i];
+        
+        // Simple line wrapping: If the line is too long, split it into two lines at the last space before the cutoff
+        if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
+            size_t spacePos = line.find_last_of(' ', 60);
+            if (spacePos != std::string::npos) {
+                std::string first = line.substr(0, spacePos);
+                std::string second = line.substr(spacePos + 1);
+                DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+                DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
+            } else {
+                DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+            }
+        } else {
+            DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
+        }
+    }
+}
+
 void DataStructureState::update(float deltaTime)
 {
 

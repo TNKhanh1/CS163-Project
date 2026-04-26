@@ -8,7 +8,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 	head = nullptr;
 	startX = 100.0f;
 	startY = 450.0f;
-	nodeSpacing = 150.0f;
+	nodeSpacing = 120.0f;
 	nodeRadius = 40.0f;
 
 	NextState = (int)STATE_LINKEDLIST;
@@ -22,7 +22,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 	previousZoomMultiplier = 1.0f;
 
 	activeCodeLine = -1;
-	pseudoCodeLines = {
+	pseudoCode = {
 		"// Select an operation from",
 		"// the control panel to see",
 		"// the algorithm execution."
@@ -77,6 +77,13 @@ void LinkedListState::update(float deltaTime)
 void LinkedListState::onExecuteOp(MainOp op)
 {
 	history.clear();
+	historyCount = 0;
+	isAnimating = false;
+	isAnimFinished = true;
+	currentTask = LL_TASK_NONE;
+	activeCodeLine = -1;
+	searchPointer = nullptr;
+
 	try {
 		switch (op) {
 			case OP_SLOT1: // Create
@@ -194,11 +201,17 @@ void LinkedListState::DrawSubMenuContent()
 	switch (activeMainOp) 
 	{
 		case OP_SLOT1: // Create
-			if (DrawButtonText({subX, startY}, "Empty", 90, mainHeight, false)) clearList();
+			if (DrawButtonText({subX, startY}, "Empty", 90, mainHeight, false)) {
+				clearList();
+				// Cancel active animations to prevent crash
+				history.clear(); historyCount = 0; isAnimating = false; currentTask = LL_TASK_NONE; activeCodeLine = -1; searchPointer = nullptr;
+			}
 			if (DrawButtonText({subX + 98, startY}, "User Defined", 160, mainHeight, isCreateUserDefOpen)) isCreateUserDefOpen = !isCreateUserDefOpen;
 			if (DrawButtonText({subX + 266, startY}, "Random", 110, mainHeight, false)) {
 				clearList();
-				for(int i = 0; i < GetRandomValue(3, 7); i++) insertNode(GetRandomValue(1, 99));
+				// Cancel active animations to prevent crash
+				history.clear(); historyCount = 0; isAnimating = false; currentTask = LL_TASK_NONE; activeCodeLine = -1; searchPointer = nullptr;
+				for(int i = 0; i < GetRandomValue(4, 8); i++) insertNode(GetRandomValue(1, 99));
 			}
 			if (isCreateUserDefOpen) {
 				if (DrawTextBox({subX + 98, startY + mainHeight + gap}, inputBuffers[0], activeInputFocus == 0, 230, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 0;
@@ -290,36 +303,7 @@ void LinkedListState::draw()
 	}
 
 	// Pseudocode Panel
-	float pcX = 1315.0f, pcY = 150.0f;
-	float pcWidth = 450.0f, pcHeight = 450.0f;
-	DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
-	DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
-	DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
-	
-	float lineHeight = 28.0f;
-	float textPadding = 15.0f;
-	for (int i = 0; i < (int)pseudoCodeLines.size(); i++) {
-		Color textCol = BLACK;
-		if (i == activeCodeLine) {
-			DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
-			textCol = RED;
-		}
-		
-		std::string line = pseudoCodeLines[i];
-		if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
-			size_t spacePos = line.find_last_of(' ', 60);
-			if (spacePos != std::string::npos) {
-				std::string first = line.substr(0, spacePos);
-				std::string second = line.substr(spacePos + 1);
-				DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-				DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
-			} else {
-				DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-			}
-		} else {
-			DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-		}
-	}
+	drawPseudoCode();
 
 	// 4. Control Panel UI
 	DrawTextureV(controlTex, controlBtnPos, WHITE);
@@ -457,7 +441,7 @@ void LinkedListState::searchNode(int value)
 	if (head == nullptr) { currentErrorSlot = 2; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
 	
-	pseudoCodeLines = {
+	pseudoCode = {
 		"Node* temp = head;",
 		"while (temp != nullptr) {",
 		"    if (temp->value == target)",
@@ -482,7 +466,7 @@ void LinkedListState::deleteNodeAtIndex(int index)
 	if (index == 0) {
 		LLNode* temp = head; head = head->next; delete temp; updateTargetPositions();
 	} else {
-		pseudoCodeLines = {
+		pseudoCode = {
 			"Node* temp = head;",
 			"for (int i = 0; i < index - 1; i++)",
 			"    temp = temp->next;",
@@ -507,7 +491,7 @@ void LinkedListState::insertNodeAtIndex(int index, int value)
 		LLNode* newNode = new LLNode{ value, {startX, startY - 200.0f}, {0,0}, head, SKYBLUE };
 		head = newNode; updateTargetPositions();
 	} else {
-		pseudoCodeLines = {
+		pseudoCode = {
 			"Node* temp = head;",
 			"for (int i = 0; i < index - 1; i++)",
 			"    temp = temp->next;",

@@ -40,7 +40,6 @@ HeapState::~HeapState()
 {
     heap.clear();
     visualNodes.clear();
-    pseudoCode.clear();
 }
 
 // ---------------------------------------------------------
@@ -258,6 +257,7 @@ void HeapState::onExecuteOp(MainOp op)
 // ---------------------------------------------------------
 void HeapState::startAnimation(HeapTask task, int val1, int val2)
 {
+    history.clear(); // Clear history when starting a new animation
     syncVisualNodes();
     currentTask = task;
     animCurrentIdx = 0;
@@ -683,36 +683,7 @@ void HeapState::draw()
     drawHorizontalArray();
 
     // Vẽ Khung hiển thị Mã giả (Pseudo-code)
-    float pcX = 1315.0f, pcY = 150.0f;
-    float pcWidth = 450.0f, pcHeight = 450.0f;
-    DrawRectangle(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, Fade(LIGHTGRAY, 0.6f));
-    DrawRectangleLines(pcX - 10, pcY - 10, pcWidth + 40, pcHeight, DARKGRAY);
-    DrawTextEx(listFont, "Source Code:", {pcX, pcY}, 25.0f, 1.0f, DARKBLUE);
-    
-    float lineHeight = 28.0f;
-    float textPadding = 15.0f;
-    for (int i = 0; i < (int)pseudoCode.size(); i++) {
-        Color textCol = BLACK;
-        if (i == activeCodeLine) {
-            DrawRectangle(pcX, pcY + 40.0f + i * lineHeight - 2.0f, pcWidth, lineHeight - 2.0f, Fade(YELLOW, 0.5f));
-            textCol = RED;
-        }
-        // Wrap text only if still too long after shrinking font
-        std::string line = pseudoCode[i];
-        if (MeasureTextEx(numberFont, line.c_str(), 18.0f, 1.0f).x > 520.0f) {
-            size_t spacePos = line.find_last_of(' ', 60);
-            if (spacePos != std::string::npos) {
-                std::string first = line.substr(0, spacePos);
-                std::string second = line.substr(spacePos + 1);
-                DrawTextEx(numberFont, first.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-                DrawTextEx(numberFont, second.c_str(), {pcX + textPadding, pcY + 40.0f + (i + 0.5f) * lineHeight}, 18.0f, 1.0f, textCol);
-            } else {
-                DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-            }
-        } else {
-            DrawTextEx(numberFont, line.c_str(), {pcX + textPadding, pcY + 40.0f + i * lineHeight}, 18.0f, 1.0f, textCol);
-        }
-    }
+    drawPseudoCode();
 
     // Vẽ Menu tùy chỉnh
     DrawTextureV(controlTex, controlBtnPos, WHITE);
