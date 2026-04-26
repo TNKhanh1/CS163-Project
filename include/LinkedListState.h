@@ -47,7 +47,7 @@ public:
 	void loadAssets() override;
 	void update(float deltaTime) override;
 	void draw() override;
-
+	bool hasPrevStep() override { return !history.empty(); }
 
 // Implementation of DataStructureState hooks
 protected:
