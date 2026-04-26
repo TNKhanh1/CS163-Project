@@ -81,36 +81,38 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		NextState = 0;
 		return;
 	}
-
-	// 1. Centralized Animation & Undo Trigger
-	if (isAutoPlay)
+	if(!overridesStepHandling)
 	{
-		// AUTO MODE: Progress animation automatically based on timer
-		if (isAnimating && !isAnimFinished && CheckStepReady(deltaTime, 0.7f))
+		// 1. Centralized Animation & Undo Trigger
+		if (isAutoPlay)
 		{
-			saveState();
-			handleAnimationStep();
-		}
-	}
-	else 
-	{
-		// MANUAL MODE
-		if (stepForwardRequested)
-		{
-			// Only allow forward steps if an animation is actually running
-			if (isAnimating && !isAnimFinished)
+			// AUTO MODE: Progress animation automatically based on timer
+			if (isAnimating && !isAnimFinished && CheckStepReady(deltaTime, 0.7f))
 			{
 				saveState();
 				handleAnimationStep();
 			}
-			stepForwardRequested = false;
 		}
-		
-		if (stepBackwardRequested)
+		else 
 		{
-			// You can always step backwards as long as there's history, even if not currently animating
-			undoState();
-			stepBackwardRequested = false;
+			// MANUAL MODE
+			if (stepForwardRequested)
+			{
+				// Only allow forward steps if an animation is actually running
+				if (isAnimating && !isAnimFinished)
+				{
+					saveState();
+					handleAnimationStep();
+				}
+				stepForwardRequested = false;
+			}
+			
+			if (stepBackwardRequested)
+			{
+				// You can always step backwards as long as there's history, even if not currently animating
+				undoState();
+				stepBackwardRequested = false;
+			}
 		}
 	}
 
