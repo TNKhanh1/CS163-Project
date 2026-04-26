@@ -27,6 +27,7 @@ public:
     void loadAssets() override;
     void update(float deltaTime) override;
     void draw() override;
+    bool hasPrevStep() override { return !history.empty(); }
 
 protected:
     // Cài đặt các hàm ảo bắt buộc từ DataStructureState
