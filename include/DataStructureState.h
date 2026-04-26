@@ -66,7 +66,7 @@ protected:
 	float cursorBlinkTimer;
 	float textScrollX;
 	bool cursorVisible;
-	std::string inputBuffers[5]; 
+	std::string inputBuffers[7]; 
 
 	// Shared input error
 	std::string inputErrorMsg;
@@ -92,7 +92,7 @@ protected:
 	void updateSharedUI(float deltaTime, Vector2 mousePos); 
 	void drawSharedUI(); 
 	bool CheckStepReady(float deltaTime, float stepDuration);
-	void clearInputBuffers() { for (int i = 0; i < 5; i++) inputBuffers[i].clear(); }
+	void clearInputBuffers() { for (int i = 0; i < 7; i++) inputBuffers[i].clear(); }
 	virtual void handleAnimationStep() {} 
 	virtual void saveState() {}
 	virtual void undoState() {}

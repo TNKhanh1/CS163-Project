@@ -12,7 +12,7 @@
 // Enums for UI state
 enum ActiveSubPanel { SUB_NONE, SUB_CREATE, SUB_INSERT, SUB_SEARCH, SUB_DELETE };
 enum ActiveInput { INP_NONE, INP_CREATE, INP_SEARCH, INP_INSERT_IDX, INP_INSERT_VAL, INP_DELETE_IDX };
-enum PendingTask { LL_TASK_NONE, LL_TASK_SEARCH, LL_TASK_INSERT_INDEX, LL_TASK_DELETE_INDEX };
+enum PendingTask { LL_TASK_NONE, LL_TASK_SEARCH, LL_TASK_INSERT_INDEX, LL_TASK_DELETE_INDEX, LL_TASK_UPDATE_INDEX };
 
 struct LLNode {
 	int value;
@@ -88,4 +88,5 @@ private:
 	void clearList();
 	void updateTargetPositions();
 	void resetNodeColors();
+	void updateNodeAtIndex(int index, int value);
 };

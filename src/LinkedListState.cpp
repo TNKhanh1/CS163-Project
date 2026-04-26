@@ -115,7 +115,14 @@ void LinkedListState::onExecuteOp(MainOp op)
 					inputBuffers[1].clear(); 
 				} 
 				break;
-			case OP_SLOT4: // Delete
+			case OP_SLOT4: // Update
+				if (!inputBuffers[5].empty() && !inputBuffers[6].empty()) {
+					updateNodeAtIndex(std::stoi(inputBuffers[5]), std::stoi(inputBuffers[6]));
+					inputBuffers[5].clear(); 
+					inputBuffers[6].clear();
+				} 
+				break;
+			case OP_SLOT5: // Delete
 				if (!inputBuffers[4].empty()) { 
 					deleteNodeAtIndex(std::stoi(inputBuffers[4])); 
 					inputBuffers[4].clear(); 
@@ -154,9 +161,11 @@ void LinkedListState::handleAnimationStep()
 			}
 		}
 	} 
-	else if (currentTask == LL_TASK_DELETE_INDEX || currentTask == LL_TASK_INSERT_INDEX) {
-		if (searchCurrentIndex < searchTargetIndex - 1 && searchPointer && searchPointer->next) {
-			searchPointer->color = LIGHTGRAY;
+	else if (currentTask == LL_TASK_DELETE_INDEX || currentTask == LL_TASK_INSERT_INDEX || currentTask == LL_TASK_UPDATE_INDEX) {
+
+		int stopIndex = (currentTask == LL_TASK_UPDATE_INDEX) ? searchTargetIndex : (searchTargetIndex - 1);
+
+		if (searchCurrentIndex < stopIndex && searchPointer && (currentTask == LL_TASK_UPDATE_INDEX ? true : (searchPointer->next != nullptr))) {			searchPointer->color = LIGHTGRAY;
 			searchPointer = searchPointer->next;
 			if (searchPointer) searchPointer->color = YELLOW;
 			searchCurrentIndex++;
@@ -169,7 +178,7 @@ void LinkedListState::handleAnimationStep()
 					delete toDelete;
 					activeCodeLine = 4; // temp->next = toDelete->next;
 				} else {
-					currentErrorSlot = 3; // DELETE row
+					currentErrorSlot = 4; // DELETE row
 					inputErrorMsg = "Index out of bounds!";
 					inputErrorTimer = 2.5f;
 				}
@@ -185,9 +194,23 @@ void LinkedListState::handleAnimationStep()
 					inputErrorTimer = 2.5f;
 				}
 			}
+			else if (currentTask == LL_TASK_UPDATE_INDEX) {
+				if (searchCurrentIndex == searchTargetIndex && searchPointer) {
+					searchPointer->value = searchTargetValue;
+					searchPointer->color = GREEN; 
+					activeCodeLine = 3; // temp->value = newValue;
+				} else {
+					currentErrorSlot = 3; // UPDATE row
+					inputErrorMsg = "Index out of bounds!";
+					inputErrorTimer = 2.5f;
+				}
+			}
 			updateTargetPositions();
 			isAnimating = false; isAnimFinished = true;
-			resetNodeColors();
+			
+			if (currentTask != LL_TASK_UPDATE_INDEX) {
+				resetNodeColors();
+			}
 		}
 	}
 }
@@ -234,11 +257,17 @@ void LinkedListState::DrawSubMenuContent()
 			if (DrawTextBox({subX + 80, startY + 2 * (mainHeight + gap)}, inputBuffers[1], activeInputFocus == 1, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 1;
 			if (DrawButtonText({subX + 210, startY + 2 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT3);
 			break;
-
-		case OP_SLOT4: // Delete
+		case OP_SLOT4: // Update
 			DrawLabel({subX, startY + 3 * (mainHeight + gap)}, "Index=");
-			if (DrawTextBox({subX + 80, startY + 3 * (mainHeight + gap)}, inputBuffers[4], activeInputFocus == 4, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 4;
-			if (DrawButtonText({subX + 210, startY + 3 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT4);
+			if (DrawTextBox({subX + 80, startY + 3 * (mainHeight + gap)}, inputBuffers[5], activeInputFocus == 5, 70, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 5;
+			DrawLabel({subX + 160, startY + 3 * (mainHeight + gap)}, "Value=");
+			if (DrawTextBox({subX + 240, startY + 3 * (mainHeight + gap)}, inputBuffers[6], activeInputFocus == 6, 70, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 6;
+			if (DrawButtonText({subX + 320, startY + 3 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT4);
+			break;
+		case OP_SLOT5: // Delete
+			DrawLabel({subX, startY + 4 * (mainHeight + gap)}, "Index=");
+			if (DrawTextBox({subX + 80, startY + 4 * (mainHeight + gap)}, inputBuffers[4], activeInputFocus == 4, 120, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 4;
+			if (DrawButtonText({subX + 210, startY + 4 * (mainHeight + gap)}, "GO", 50, mainHeight, false)) onExecuteOp(OP_SLOT5);
 			break;
 		default: 
 			break;
@@ -307,7 +336,7 @@ void LinkedListState::draw()
 
 	// 4. Control Panel UI
 	DrawTextureV(controlTex, controlBtnPos, WHITE);
-	DrawSideMenuFrame({"Create", "Insert", "Search", "Delete"});
+	DrawSideMenuFrame({"Create", "Insert", "Search", "Update", "Delete"});
 }
 
 // Undo/redo state management
@@ -459,8 +488,8 @@ void LinkedListState::searchNode(int value)
 
 void LinkedListState::deleteNodeAtIndex(int index)
 {
-	if (head == nullptr) { currentErrorSlot = 3; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
-	if (index < 0) { currentErrorSlot = 3; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
+	if (head == nullptr) { currentErrorSlot = 4; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
+	if (index < 0) { currentErrorSlot = 4; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
 	resetNodeColors();
 	
 	if (index == 0) {
@@ -506,6 +535,32 @@ void LinkedListState::insertNodeAtIndex(int index, int value)
 		isAnimating = true; isAnimFinished = false;
 		currentTask = LL_TASK_INSERT_INDEX; animTimer = 0.0f;
 	}
+}
+
+void LinkedListState::updateNodeAtIndex(int index, int value)
+{
+	if (head == nullptr) { currentErrorSlot = 3; inputErrorMsg = "List is empty!"; inputErrorTimer = 2.5f; return; }
+	if (index < 0) { currentErrorSlot = 3; inputErrorMsg = "Invalid index!"; inputErrorTimer = 2.5f; return; }
+	resetNodeColors();
+	
+	pseudoCode = {
+		"Node* temp = head;",
+		"for (int i = 0; i < index; i++)",
+		"    temp = temp->next;",
+		"temp->value = newValue;"
+	};
+	activeCodeLine = 1;
+
+	searchTargetIndex = index;
+	searchTargetValue = value;
+	searchCurrentIndex = 0;
+	searchPointer = head;
+	searchPointer->color = YELLOW;
+	
+	isAnimating = true; 
+	isAnimFinished = false;
+	currentTask = LL_TASK_UPDATE_INDEX; 
+	animTimer = 0.0f;
 }
 
 void LinkedListState::resetNodeColors()
