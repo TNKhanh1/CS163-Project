@@ -8,7 +8,7 @@ LinkedListState::LinkedListState() : DataStructureState()
 	head = nullptr;
 	startX = 100.0f;
 	startY = 450.0f;
-	nodeSpacing = 150.0f;
+	nodeSpacing = 120.0f;
 	nodeRadius = 40.0f;
 
 	NextState = (int)STATE_LINKEDLIST;
@@ -77,6 +77,13 @@ void LinkedListState::update(float deltaTime)
 void LinkedListState::onExecuteOp(MainOp op)
 {
 	history.clear();
+	historyCount = 0;
+	isAnimating = false;
+	isAnimFinished = true;
+	currentTask = LL_TASK_NONE;
+	activeCodeLine = -1;
+	searchPointer = nullptr;
+
 	try {
 		switch (op) {
 			case OP_SLOT1: // Create
@@ -194,11 +201,17 @@ void LinkedListState::DrawSubMenuContent()
 	switch (activeMainOp) 
 	{
 		case OP_SLOT1: // Create
-			if (DrawButtonText({subX, startY}, "Empty", 90, mainHeight, false)) clearList();
+			if (DrawButtonText({subX, startY}, "Empty", 90, mainHeight, false)) {
+				clearList();
+				// Cancel active animations to prevent crash
+				history.clear(); historyCount = 0; isAnimating = false; currentTask = LL_TASK_NONE; activeCodeLine = -1; searchPointer = nullptr;
+			}
 			if (DrawButtonText({subX + 98, startY}, "User Defined", 160, mainHeight, isCreateUserDefOpen)) isCreateUserDefOpen = !isCreateUserDefOpen;
 			if (DrawButtonText({subX + 266, startY}, "Random", 110, mainHeight, false)) {
 				clearList();
-				for(int i = 0; i < GetRandomValue(3, 7); i++) insertNode(GetRandomValue(1, 99));
+				// Cancel active animations to prevent crash
+				history.clear(); historyCount = 0; isAnimating = false; currentTask = LL_TASK_NONE; activeCodeLine = -1; searchPointer = nullptr;
+				for(int i = 0; i < GetRandomValue(4, 8); i++) insertNode(GetRandomValue(1, 99));
 			}
 			if (isCreateUserDefOpen) {
 				if (DrawTextBox({subX + 98, startY + mainHeight + gap}, inputBuffers[0], activeInputFocus == 0, 230, mainHeight, cursorIndex, textScrollX, cursorVisible)) activeInputFocus = 0;
