@@ -47,16 +47,12 @@ private:
     bool updateHeapifyUp;
     int insertAnimPhase;
     int extractAnimPhase;
-    int activeCodeLine;
     float previousZoomMultiplier;
 
     // Quản lý trạng thái UI phụ (Kế thừa pattern từ LinkedListState)
     int activeInputFocus; // -1: None, 0: Create, 1: Insert, 2: Search, 3: UpdIdx, 4: UpdVal
     int previousInputFocus;
     bool isCreateUserDefOpen;
-
-    // Lưu trữ mã giả (Pseudo-code) để hiển thị trên màn hình
-    std::vector<std::string> pseudoCode;
 
     // Các hàm bổ trợ xử lý dữ liệu và giao diện
     void syncVisualNodes();

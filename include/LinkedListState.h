@@ -76,9 +76,6 @@ private:
 	PendingTask currentTask;
 	float previousZoomMultiplier;
 
-	// Pseudocode
-    int activeCodeLine;
-    std::vector<std::string> pseudoCodeLines;
 
 	// History for undo/redo
 	std::vector<LLStateSnapshot> history;

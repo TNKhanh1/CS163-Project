@@ -167,37 +167,7 @@ void AVLTreeState::draw()
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear", "Random"});
 
-    if (!pseudoCode.empty()) {
-        // 1. Define Box Size and Position (Bottom Right Corner)
-        float pcWidth = 450.0f;
-        float pcHeight = 350.0f;
-        float pcX = GetScreenWidth() - pcWidth - 20.0f;  
-        float pcY = 50.0f; // Above the control panel
-
-        // 2. Draw Background and Border
-        DrawRectangle(pcX, pcY, pcWidth, pcHeight, Fade(LIGHTGRAY, 0.8f));
-        DrawRectangleLines(pcX, pcY, pcWidth, pcHeight, DARKGRAY);
-
-        // 3. Draw Title
-        DrawTextEx(listFont, "Source Code:", {pcX + 15.0f, pcY + 15.0f}, 25.0f, 1.0f, DARKBLUE);
-
-        // 4. Draw the Code Lines with Highlight
-        float lineHeight = 28.0f;
-        float startY = pcY + 60.0f;
-        
-        for (int i = 0; i < (int)pseudoCode.size(); i++) {
-            Color textCol = BLACK;
-            
-            // If this is the active line, draw the yellow highlight and make text red!
-            if (i == activeCodeLine) {
-                DrawRectangle(pcX + 5.0f, startY + i * lineHeight - 2.0f, pcWidth - 10.0f, lineHeight, Fade(YELLOW, 0.6f));
-                textCol = RED;
-            }
-            
-            // Draw the actual line of code (respects the spaces for indentation)
-            DrawTextEx(numberFont, pseudoCode[i].c_str(), {pcX + 20.0f, startY + i * lineHeight}, 18.0f, 1.0f, textCol);
-        }
-    }
+    drawPseudoCode();
 }
 
 bool AVLTreeState::checkBuffer(std::string& currentInput, int id) {

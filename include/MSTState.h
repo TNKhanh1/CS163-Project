@@ -26,8 +26,6 @@ private:
     int currentAnimIndex;                 
     enum AnimType { NONE, KRUSKAL, PRIM } currentAnimType;
     int animPhase;
-    std::vector<std::string> pseudoCode;
-    int activeCodeLine;
 
     void updateNodePositions();           
     
