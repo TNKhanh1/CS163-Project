@@ -225,7 +225,7 @@ void MSTState::handleAnimationStep()
         else
         {
             activeCodeLine = 8; // Dòng: return mst;
-            //isAnimating = false;
+            isAnimating = false;
         }
     }
     else if (currentAnimType == PRIM)
@@ -247,7 +247,7 @@ void MSTState::handleAnimationStep()
         else
         {
             activeCodeLine = 10; // Dòng: return mst;
-            //isAnimating = false;
+            isAnimating = false;
         }
     }
     else

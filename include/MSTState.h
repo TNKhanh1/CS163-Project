@@ -44,4 +44,7 @@ private:
 
     void saveState() override;
     void undoState() override;
+
+    bool hasPrevStep() override { return !history.empty(); }
+    
 };
