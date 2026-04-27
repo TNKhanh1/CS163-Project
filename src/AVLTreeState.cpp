@@ -1,4 +1,5 @@
 #include "AVLTreeState.h"
+#include <fstream>
 #include <random>
 
 
@@ -805,4 +806,59 @@ void AVLTreeState::updateTargetLayouts(Node* node, float x, float y, float hGap)
     float verticalSpacing = 80.0f * zoomMultiplier;
     updateTargetLayouts(node->left, x - hGap, y + verticalSpacing, hGap / 2.0f);
     updateTargetLayouts(node->right, x + hGap, y + verticalSpacing, hGap / 2.0f);
+}
+
+
+
+
+bool AVLTreeState::processDroppedFile(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file) { 
+        inputErrorMsg = "ERROR: CANNOT OPEN FILE"; 
+        return false; 
+    }
+
+    std::vector<int> temp;
+    int val;
+    while (file >> val) {
+        temp.push_back(val);
+        if (temp.size() > 20) { 
+            inputErrorMsg = "ERROR: MAX 20 NODES EXCEEDED"; 
+            return false; 
+        }
+    }
+    
+    if (temp.empty()) return false;
+
+    avl->clear();
+    for (auto* o : opHistory) {
+        for (auto* s : o->steps) { delete s->treeCopy; delete s; }
+        delete o->treeCopy; delete o;
+    }
+    opHistory.clear(); 
+    
+    pCode = 0; activeCodeLine = -1; opIndex = -1; stepIndex = -1;
+    currentTask = TASK_NONE; isAnimating = false; isAnimFinished = true;
+
+    for (int i = 0; i < (int)temp.size(); i++) {
+        avl->insert(temp[i]); 
+        while (avl->balance() != 0) {} 
+    }
+    
+    AVLOpSnapshot* dropOp = new AVLOpSnapshot();
+    dropOp->treeCopy = new AVLTree();
+    dropOp->treeCopy->copyTree(*avl);
+    dropOp->pCode = 0;
+    opHistory.push_back(dropOp);
+    opIndex = 0;
+    
+    Node* rootNode = const_cast<Node*>(avl->rootCall());
+    
+    updateTargetLayouts(rootNode, 900.0f, 150.0f, 350.0f * zoomMultiplier);
+    
+    snapNodePositions(rootNode); 
+    
+    inputErrorMsg = ""; 
+    activeInputFocus = -1;
+    return true;
 }

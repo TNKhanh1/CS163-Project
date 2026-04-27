@@ -165,6 +165,20 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		float progress = Clamp((mousePos.x - zoomSliderBounds.x) / zoomSliderBounds.width, 0.0f, 1.0f);
 		zoomMultiplier = 0.2f + (progress * 1.8f);
 	}
+
+	if (isWaitingForDrop) {
+        if (IsFileDropped()) {
+            FilePathList droppedFiles = LoadDroppedFiles();
+            if (droppedFiles.count > 0) {
+            
+                if (processDroppedFile(droppedFiles.paths[0])) {
+                    inputErrorMsg = "SUCCESS: FILE LOADED";
+                    isWaitingForDrop = false; 
+                }
+            }
+            UnloadDroppedFiles(droppedFiles);
+        }
+    }
 }
 
 void DataStructureState::DrawSideMenuFrame(const std::vector<std::string>& labels)
@@ -290,6 +304,51 @@ void DataStructureState::drawSharedUI()
 		float errorY = controlBtnPos.y + ((currentErrorSlot) * (45.0f + 8.0f)) + 50.0f;
 		DrawTextEx(numberFont, inputErrorMsg.c_str(), { menuStartX + 135.0f, errorY }, 24.0f, 1.0f, RED);
 	}
+
+	Vector2 importBtnPos = { 110.0f, 30.0f }; 
+    if (DrawButtonText(importBtnPos, "Import .txt File", 180, 40, isWaitingForDrop)) {
+        isWaitingForDrop = !isWaitingForDrop;
+    }
+
+	if (isWaitingForDrop) {
+        float rectWidth = 600.0f;
+        float rectHeight = 400.0f;
+        Vector2 screenCenter = { (float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f };
+        Rectangle dropZone = { 
+            screenCenter.x - rectWidth / 2.0f, 
+            screenCenter.y - rectHeight / 2.0f, 
+            rectWidth, 
+            rectHeight 
+        };
+
+        DrawRectangleRec(dropZone, Fade(BLACK, 0.85f)); 
+        DrawRectangleLinesEx(dropZone, 3.0f, RAYWHITE); 
+
+        Rectangle closeBtn = { dropZone.x + dropZone.width - 45, dropZone.y + 10, 35, 35 };
+        bool hoverX = CheckCollisionPointRec(GetMousePosition(), closeBtn);
+        DrawRectangleRec(closeBtn, hoverX ? RED : MAROON);
+        
+        DrawTextEx(numberFont, "X", { closeBtn.x + 10, closeBtn.y + 5 }, 25, 2, WHITE);
+
+        const char* msg = "DROP .TXT FILE HERE";
+        float fontSize = 40.0f;
+        float spacing = 2.0f;
+        
+        
+        Vector2 textSize = MeasureTextEx(numberFont, msg, fontSize, spacing);
+        Vector2 textPos = { screenCenter.x - textSize.x / 2, screenCenter.y - 30 };
+        DrawTextEx(numberFont, msg, textPos, fontSize, spacing, RAYWHITE);
+
+
+        const char* subMsg = "Integers only - Max 20 nodes";
+        float subFontSize = 20.0f;
+        Vector2 subSize = MeasureTextEx(numberFont, subMsg, subFontSize, 1);
+        DrawTextEx(numberFont, subMsg, { screenCenter.x - subSize.x / 2, screenCenter.y + 30 }, subFontSize, 1, LIGHTGRAY);
+
+        if (hoverX && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            isWaitingForDrop = false;
+        }
+    }
 }
 
 void DataStructureState::updateControlPanel(float deltaTime, Vector2 mousePos)

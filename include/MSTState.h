@@ -44,5 +44,7 @@ private:
     void undoState() override;
 
     bool hasPrevStep() override { return !history.empty(); }
+
+    bool processDroppedFile(const std::string& filePath) override;
     
 };

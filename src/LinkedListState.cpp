@@ -596,3 +596,26 @@ void LinkedListState::updateTargetPositions()
 		current = current->next;
 	}
 }
+
+bool LinkedListState::processDroppedFile(const std::string& filePath) 
+{
+    std::ifstream file(filePath);
+    if (!file) { inputErrorMsg = "ERROR: CANNOT OPEN FILE"; return false; }
+
+    std::vector<int> temp;
+    int val;
+    while (file >> val) 
+	{
+        temp.push_back(val);
+        if (temp.size() > 20) { inputErrorMsg = "ERROR: MAX 20 NODES EXCEEDED"; return false; }
+    }
+    
+    if (temp.empty()) { inputErrorMsg = "ERROR: FILE IS EMPTY OR INVALID FORMAT"; return false; }
+
+    clearList(); 
+    history.clear();
+
+    for (int x : temp) insertNode(x); 
+    updateTargetPositions();
+    return true;
+}

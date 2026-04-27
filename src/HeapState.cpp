@@ -841,3 +841,27 @@ void HeapState::onModeSwitch(bool toAutoMode)
         syncVisualNodes();
     }
 }
+
+bool HeapState::processDroppedFile(const std::string& filePath) 
+{
+    std::ifstream file(filePath);
+    if (!file) return false;
+
+    std::vector<int> temp;
+    int val;
+    while (file >> val) {
+        temp.push_back(val);
+        if (temp.size() > 20) { inputErrorMsg = "ERROR: MAX 20 NODES EXCEEDED"; return false; }
+    }
+    
+    if (temp.empty()) return false;
+
+    heap.clear(); 
+    history.clear();
+
+    for (int x : temp) heap.insert(x);
+    
+    syncVisualNodes(); 
+    updateTargetPositions();
+    return true;
+}

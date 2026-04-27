@@ -96,4 +96,5 @@ private:
     void drawNode(const Node* node);
     void updateTargetLayouts(Node* node, float x, float y, float hGap);
 
+    bool processDroppedFile(const std::string& filePath) override;
 };
