@@ -171,7 +171,6 @@ Visualizes graph algorithms (Kruskal's and Prim's) for finding the minimum spann
 You can also load a graph from a text file with the following format:
 
 ```
-6 7
 0 1 4
 0 2 3
 1 2 1
@@ -182,8 +181,7 @@ You can also load a graph from a text file with the following format:
 ```
 
 Where:
-- First line: `number_of_nodes number_of_edges`
-- Following lines: `source destination weight`
+- lines: `source destination weight`
 
 ### Visual Indicators
 
