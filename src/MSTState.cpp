@@ -138,6 +138,7 @@ void MSTState::onExecuteOp(MainOp op)
                 targetMST = currentGraph.kruskal();
                 currentAnimIndex = 0;
                 currentAnimType = KRUSKAL;
+                isAnimFinished = false;
                 isAnimating = true;
                 history.clear();
                 animTimer = 0.0f;
@@ -167,6 +168,7 @@ void MSTState::onExecuteOp(MainOp op)
                     targetMST = currentGraph.prim(startNode);
                     currentAnimIndex = 0;
                     currentAnimType = PRIM;
+                    isAnimFinished = false;
                     isAnimating = true;
                     history.clear();
                     animTimer = 0.0f;
