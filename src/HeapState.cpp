@@ -264,6 +264,7 @@ void HeapState::startAnimation(HeapTask task, int val1, int val2)
     animParentIdx = -1;
     animTargetValue = val1;
     animUpdateValue = val2;
+    isAnimFinished = false;
     isAnimating = true;
     animTimer = 0.0f;
 
