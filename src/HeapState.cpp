@@ -684,7 +684,7 @@ void HeapState::draw()
 
     // Vẽ Khung hiển thị Mã giả (Pseudo-code)
     drawPseudoCode();
-
+    drawDropZone();
     // Vẽ Menu tùy chỉnh
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Create", "Insert", "Search", "Update", "Delete"});
@@ -716,7 +716,7 @@ void HeapState::drawHorizontalArray()
 {
     if (visualNodes.empty()) return;
 
-    float arrayStartX = 100.0f;
+    float arrayStartX = 500.0f;
     float arrayStartY = 880.0f;
     float nodeSize = 60.0f * zoomMultiplier;
     float gap = 10.0f * zoomMultiplier;
@@ -861,6 +861,11 @@ bool HeapState::processDroppedFile(const std::string& filePath)
 
     for (int x : temp) heap.insert(x);
     
+    isAnimating = false;
+    isAnimFinished = true;
+    currentTask = HEAP_TASK_NONE;
+    activeCodeLine = -1;
+
     syncVisualNodes(); 
     updateTargetPositions();
     return true;

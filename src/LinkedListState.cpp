@@ -333,7 +333,7 @@ void LinkedListState::draw()
 
 	// Pseudocode Panel
 	drawPseudoCode();
-
+	drawDropZone();
 	// 4. Control Panel UI
 	DrawTextureV(controlTex, controlBtnPos, WHITE);
 	DrawSideMenuFrame({"Create", "Insert", "Search", "Update", "Delete"});
@@ -615,6 +615,12 @@ bool LinkedListState::processDroppedFile(const std::string& filePath)
     clearList(); 
     history.clear();
 
+	isAnimating = false;
+    isAnimFinished = true;
+    currentTask = LL_TASK_NONE;
+    activeCodeLine = -1;
+    searchPointer = nullptr;
+	
     for (int x : temp) insertNode(x); 
     updateTargetPositions();
     return true;
