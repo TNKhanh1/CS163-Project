@@ -42,6 +42,9 @@ class MainLoop
         int WindowWidth;
         void LoadAssets();
 
+        Music bgMusic;
+        bool isMusicOn;
+        Rectangle musicBtnBounds;
 
         MenuState menu;
         IntroState intro;
