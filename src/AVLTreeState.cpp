@@ -173,7 +173,7 @@ void AVLTreeState::draw()
 }
 
 bool AVLTreeState::checkBuffer(std::string& currentInput, int id) {
-    if (currentInput.empty() || currentInput == "-") {
+    if (currentInput.empty() || currentInput == "-" || currentInput == "+") {
 		currentErrorSlot = id; 
 		inputErrorMsg = "Value cannot be empty!";
 		inputErrorTimer = 2.5f;
