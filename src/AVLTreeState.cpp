@@ -374,6 +374,16 @@ void AVLTreeState::onExecuteOp(MainOp op) {
     opIndex = (int)opHistory.size() - 1;
     stepIndex = -1;
 
+    if (op == OP_SLOT1) {
+        if (!checkBuffer(inputBuffers[1], 1)) return;
+    }
+    else if (op == OP_SLOT2) {
+        if (!checkBuffer(inputBuffers[2], 2)) return;
+    }
+    else if (op == OP_SLOT3) {
+        if (!checkBuffer(inputBuffers[3], 3)) return;
+    }
+
     resetNodeColors(const_cast<Node*>(avl->rootCall()));
     int id = (op == OP_SLOT1) ? 1 : (op == OP_SLOT2) ? 2 : 3;
     int value = std::stoi(inputBuffers[id]);
