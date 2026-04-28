@@ -19,7 +19,7 @@ public:
     void buildHeap(const std::vector<int>& initialData);
     void clear();
     void insert(int value);
-    int extractTop(); // Dùng hàm O(log N) thay vì search & remove
+    int extractTop(); // O(log N) extraction instead of search & remove
     void updateValue(int index, int newValue);
     void setValue(int index, int newValue);
     

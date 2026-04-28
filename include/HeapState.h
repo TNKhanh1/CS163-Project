@@ -6,10 +6,10 @@
 #include <vector>
 #include <string>
 
-// Enum quản lý các tác vụ đang chờ chạy animation (Step-by-step)
+// Enum for managing animation tasks (step-by-step)
 enum HeapTask { HEAP_TASK_NONE, HEAP_TASK_INSERT, HEAP_TASK_SEARCH, HEAP_TASK_UPDATE, HEAP_TASK_EXTRACT };
 
-// Cấu trúc lưu trữ trạng thái hiển thị của từng Node trên màn hình
+// Structure for storing the visual state of each node
 struct HeapNodeVisual {
     int value;
     Vector2 position;
@@ -23,14 +23,14 @@ public:
     HeapState();
     ~HeapState();
 
-    // Các hàm vòng đời của State
+    // State lifecycle functions
     void loadAssets() override;
     void update(float deltaTime) override;
     void draw() override;
     bool hasPrevStep() override { return !history.empty(); }
 
 protected:
-    // Cài đặt các hàm ảo bắt buộc từ DataStructureState
+    // Implement required virtual functions from DataStructureState
     void handleAnimationStep() override;
     void DrawSubMenuContent() override;
     void onExecuteOp(MainOp op) override;
@@ -39,7 +39,7 @@ private:
     BinaryHeap heap; 
     std::vector<HeapNodeVisual> visualNodes;
 
-    // Quản lý trạng thái Animation (Step-by-step)
+    // Animation state management (step-by-step)
     HeapTask currentTask;
     int animCurrentIdx;
     int animParentIdx;
@@ -50,18 +50,18 @@ private:
     int extractAnimPhase;
     float previousZoomMultiplier;
 
-    // Quản lý trạng thái UI phụ (Kế thừa pattern từ LinkedListState)
+    // UI state management (inherited pattern from LinkedListState)
     int activeInputFocus; // -1: None, 0: Create, 1: Insert, 2: Search, 3: UpdIdx, 4: UpdVal
     int previousInputFocus;
     bool isCreateUserDefOpen;
 
-    // Các hàm bổ trợ xử lý dữ liệu và giao diện
+    // Helper functions for data and UI
     void syncVisualNodes();
     void updateTargetPositions();
     void resetNodeColors();
     void startAnimation(HeapTask task, int val1, int val2 = 0);
-    
-    // Tách riêng hàm vẽ để code clear hơn
+
+    // Drawing functions
     void drawBinaryTree();
     void drawHorizontalArray();
 
