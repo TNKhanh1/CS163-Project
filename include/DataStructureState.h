@@ -21,7 +21,15 @@ public:
 	bool overridesStepHandling = false;
 
 	void drawPseudoCode();
+	
+	Vector2 panOffset = { 0.0f, 0.0f };
+	bool    isDraggingPan = false;
+	Vector2 panDragStart  = { 0.0f, 0.0f };
+	Vector2 panOffsetStart = { 0.0f, 0.0f };
 
+	void BeginCanvasTransform();
+	void EndCanvasTransform();
+	void ResetView();
 
 protected:
 	// Dynamic operation slots

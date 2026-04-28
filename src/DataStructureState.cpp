@@ -168,6 +168,19 @@ void DataStructureState::updateSharedUI(float deltaTime, Vector2 mousePos)
 		zoomMultiplier = 0.2f + (progress * 1.8f);
 	}
 
+	if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) || IsMouseButtonPressed(MOUSE_MIDDLE_BUTTON)) {
+		isDraggingPan   = true;
+		panDragStart    = mousePos;
+		panOffsetStart  = panOffset;
+	}
+	if (IsMouseButtonReleased(MOUSE_RIGHT_BUTTON) || IsMouseButtonReleased(MOUSE_MIDDLE_BUTTON)) {
+		isDraggingPan = false;
+	}
+	if (isDraggingPan) {
+		panOffset.x = panOffsetStart.x + (mousePos.x - panDragStart.x);
+		panOffset.y = panOffsetStart.y + (mousePos.y - panDragStart.y);
+	}
+
 	if (isWaitingForDrop) {
         if (IsFileDropped()) {
             FilePathList droppedFiles = LoadDroppedFiles();
@@ -266,6 +279,10 @@ void DataStructureState::drawSharedUI()
 	DrawRectangleRounded({ zoomSliderBounds.x, zoomSliderBounds.y, zoomFillWidth, zoomSliderBounds.height }, 1.0f, 8, SKYBLUE);
 	DrawCircle((int)(zoomSliderBounds.x + zoomFillWidth), (int)(zoomSliderBounds.y + zoomSliderBounds.height / 2.0f), 12.0f, DARKBLUE);
 	DrawTextEx(numberFont, TextFormat("%d%%", (int)(zoomMultiplier * 100)), { zoomSliderBounds.x + zoomSliderBounds.width + 15.0f, zoomSliderBounds.y - 6.0f }, 22.0f, 1.0f, BLACK);
+
+	if (DrawButtonText({ zoomSliderBounds.x, zoomSliderBounds.y + 25.0f }, "Reset View", 110.0f, 25.0f, false)) {
+    	ResetView();
+	}
 
 	// Step-by-step control buttons
 	float buttonWidth = 150.0f;
@@ -601,6 +618,23 @@ void DataStructureState::drawPseudoCode()
     }
 }
 
+void DataStructureState::BeginCanvasTransform() {
+    Camera2D cam = {};
+    cam.offset = {GetScreenWidth()/2.0f + panOffset.x, 150.0f + panOffset.y};
+    cam.target = {GetScreenWidth()/2.0f, 150.0f};
+    cam.rotation = 0.0f;
+    cam.zoom = zoomMultiplier;
+    BeginMode2D(cam);
+}
+
+void DataStructureState::EndCanvasTransform() {
+    EndMode2D();
+}
+
+void DataStructureState::ResetView() {
+    panOffset      = { 0.0f, 0.0f };
+    zoomMultiplier = 1.0f;
+}
 
 void DataStructureState::drawDropZone()
 {

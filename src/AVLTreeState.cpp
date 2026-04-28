@@ -163,7 +163,9 @@ void AVLTreeState::draw()
     Vector2 titleSize = MeasureTextEx(listFont, titleText, 55, 6.5f);
     DrawTextEx(listFont, titleText, { (1800.0f - titleSize.x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
+    BeginCanvasTransform(); 
     drawNode(avl->rootCall());
+    EndCanvasTransform();
 
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear", "Random"});

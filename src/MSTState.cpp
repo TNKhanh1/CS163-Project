@@ -350,6 +350,7 @@ void MSTState::draw()
     const char* titleText = "MINIMUM SPANNING TREE";
     DrawTextEx(listFont, titleText, {(1800.0f - MeasureTextEx(listFont, titleText, 55, 6.5f).x) / 2.0f, 20.0f}, 55, 6.5f, BLACK);
 
+    BeginCanvasTransform();
     float nodeRadius = 30.0f * zoomMultiplier;
     float lineThickness = 3.0f * zoomMultiplier;
     float fontSize = 24.0f * zoomMultiplier;
@@ -469,6 +470,7 @@ void MSTState::draw()
         Vector2 textSize = MeasureTextEx(numberFont, vText, fontSize, 1.0f);
         DrawTextEx(numberFont, vText, {pos.x - textSize.x / 2.0f, pos.y - textSize.y / 2.0f}, fontSize, 1.0f, BLACK);
     }
+    EndCanvasTransform();
 
     drawPseudoCode();
     drawDropZone();

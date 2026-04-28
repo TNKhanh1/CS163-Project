@@ -680,7 +680,9 @@ void HeapState::draw()
     const char* titleText = "HEAP VISUALIZATION";
     DrawTextEx(listFont, titleText, { (1800.0f - MeasureTextEx(listFont, titleText, 55, 6.5f).x) / 2.0f, 20.0f }, 55, 6.5f, BLACK);
 
+    BeginCanvasTransform();
     drawBinaryTree();
+    EndCanvasTransform();
     drawHorizontalArray();
 
     // Vẽ Khung hiển thị Mã giả (Pseudo-code)
