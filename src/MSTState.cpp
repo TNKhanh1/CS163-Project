@@ -468,6 +468,7 @@ void MSTState::draw()
     }
 
     drawPseudoCode();
+    drawDropZone();
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Create", "Insert", "Kruskal", "Prim"});
 }
@@ -498,6 +499,12 @@ bool MSTState::processDroppedFile(const std::string& filePath)
     history.clear();
     targetMST.clear();
     
+    isAnimating = false;
+    isAnimFinished = true;
+    currentAnimType = NONE;
+    currentAnimIndex = 0;
+    activeCodeLine = -1;
+
     updateNodePositions();
     return true;
 }

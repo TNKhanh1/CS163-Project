@@ -169,6 +169,7 @@ void AVLTreeState::draw()
     DrawSideMenuFrame({"Insert", "Delete", "Search", "Clear", "Random"});
 
     drawPseudoCode();
+    drawDropZone();
 }
 
 bool AVLTreeState::checkBuffer(std::string& currentInput, int id) {

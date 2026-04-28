@@ -122,4 +122,5 @@ protected:
 	bool isWaitingForDrop = false;
     const int MAX_NODES = 20;
 	virtual bool processDroppedFile(const std::string& filePath) { return false; }
+	void drawDropZone();
 };
