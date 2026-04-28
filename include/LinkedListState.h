@@ -89,4 +89,6 @@ private:
 	void updateTargetPositions();
 	void resetNodeColors();
 	void updateNodeAtIndex(int index, int value);
+
+	bool processDroppedFile(const std::string& filePath) override;
 };

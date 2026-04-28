@@ -1,4 +1,5 @@
 #include "MSTState.h"
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <cmath>
@@ -469,4 +470,34 @@ void MSTState::draw()
     drawPseudoCode();
     DrawTextureV(controlTex, controlBtnPos, WHITE);
     DrawSideMenuFrame({"Create", "Insert", "Kruskal", "Prim"});
+}
+
+
+bool MSTState::processDroppedFile(const std::string& filePath) 
+{
+    std::ifstream file(filePath);
+    if (!file) return false;
+
+
+    MST newGraph; 
+    
+    for (int i = 0; ; i++) 
+    {
+        int u, v, w;
+        if (!(file >> u >> v >> w)) break; 
+        
+        if (u < 0 || u >= 20 || v < 0 || v >= 20) {
+            inputErrorMsg = "ERROR: INVALID EDGE " + std::to_string(u) + "-" + std::to_string(v);
+            return false;
+        }
+        
+        newGraph.insertEdge(u, v, w);
+    }
+
+    currentGraph = newGraph;
+    history.clear();
+    targetMST.clear();
+    
+    updateNodePositions();
+    return true;
 }

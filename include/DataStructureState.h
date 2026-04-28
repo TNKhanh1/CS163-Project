@@ -3,6 +3,7 @@
 #include "UI.h"
 #include <string>
 #include <vector>
+#include <fstream>
 
 class DataStructureState 
 {
@@ -116,4 +117,9 @@ protected:
 	//Pseudocode drawing
 	int activeCodeLine;
 	std::vector<std::string> pseudoCode;
+
+
+	bool isWaitingForDrop = false;
+    const int MAX_NODES = 20;
+	virtual bool processDroppedFile(const std::string& filePath) { return false; }
 };

@@ -81,4 +81,6 @@ private:
     void saveState() override;
     void undoState() override;
     void onModeSwitch(bool toAutoMode) override;
+
+    bool processDroppedFile(const std::string& filePath) override;
 };
