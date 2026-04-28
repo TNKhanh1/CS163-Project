@@ -258,18 +258,3 @@ Built with [Raylib](https://www.raylib.com/) - A simple and easy-to-use library 
 *For questions or issues, please refer to the source code comments or your course instructor.*
 
 ---
-
-## AI Usage Declaration
-
-This project utilizes AI assistance in the following areas:
-
-- **Debugging & Memory Management**: AI assists in identifying potential bugs and memory leak issues throughout the codebase
-- **Code Documentation**: AI helps generate clear comments to facilitate team communication and maintain code readability
-- **Code Refactoring**: AI suggests improvements to clean up code structure and enhance maintainability
-- **Raylib Implementation Guidance**: AI provides recommendations on efficient Raylib functions and best practices for graphics rendering
-- **Animation Architecture**: AI helps explain the general logic behind constructing smooth animations for data structure visualizations
-- **Animation Partitioning**: AI assists in dividing complex animations into discrete parts for manual step-by-step mode and pseudo-code synchronization
-- **AVL Tree Rotation Analysis**: AI suggests alternative methods for implementing balancing rotations, particularly splitting double rotations into two separate animation phases
-- **Balance Factor Security**: AI recommends implementing a "security lock" mechanism to prevent confusion when checking balance factors during multi-step rotation animations
-- **Reusable Animation Components**: AI suggests dividing operations into distinct animation parts that can be reused across different operations, reducing code duplication and improving pseudo-code alignment
-
