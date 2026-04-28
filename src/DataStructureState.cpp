@@ -226,6 +226,15 @@ void DataStructureState::DrawSideMenuFrame(const std::vector<std::string>& label
 	{
 		DrawSubMenuContent();
 	}
+	// Render active error message if exists
+	if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f)
+	{
+		float subX = controlBtnPos.x + (float)controlTex.width + 15.0f + 125.0f + gap;
+		float errorY = startY + (((int)activeMainOp - 1) * (mainHeight + gap)) + 10.0f;
+		float dynamicX = subX + 390.0f;
+		DrawTextEx(numberFont, inputErrorMsg.c_str(), { dynamicX, errorY }, 24.0f, 1.0f, RED);
+	}
+	
 
 	EndScissorMode();
 }
@@ -297,14 +306,6 @@ void DataStructureState::drawSharedUI()
 				stepBackwardRequested = true;
 			}
 		}
-	}
-
-	// Render active error message if exists
-	if (!inputErrorMsg.empty() && inputErrorTimer > 0.0f)
-	{
-		float menuStartX = controlBtnPos.x + 75.0f + 15.0f;
-		float errorY = controlBtnPos.y + ((currentErrorSlot) * (45.0f + 8.0f)) + 50.0f;
-		DrawTextEx(numberFont, inputErrorMsg.c_str(), { menuStartX + 135.0f, errorY }, 24.0f, 1.0f, RED);
 	}
 
 	Vector2 importBtnPos = { 110.0f, 30.0f }; 
