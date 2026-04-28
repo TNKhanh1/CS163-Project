@@ -39,7 +39,7 @@ g++ -g src/main.cpp src/UI.cpp src/MainLoop.cpp src/DataStructureState.cpp src/I
 The application provides an interactive visualization environment with:
 
 - **Main Menu**: Access to four different data structures
-- **Visual Canvas**: Real-time animation of data structure operations
+- **Visual Canvas**: Real-time animation of data structure operations — pannable and zoomable, with the option to reset the view just in case
 - **Control Panel**: Buttons for Create, Insert, Search, Delete operations
 - **Code View**: Shows the current operation being executed
 - **Step-by-Step Mode**: Manual or automatic animation control
@@ -206,6 +206,7 @@ Where:
 
 - **Left Click**: Select buttons, nodes, or confirm
 - **Right Click**: Cancel selection
+- **Right/Middle Hold + Drag**: Pan the visualization canvas
 
 ---
 
