@@ -276,7 +276,8 @@ void MSTState::DrawSubMenuContent()
             }
             if (DrawButtonText({subX + 98, startY}, "Random", 110, mainHeight, false))
             {
-                currentGraph.generateRandomGraph(GetRandomValue(4, 8), GetRandomValue(5, 12));
+                int numVertices = GetRandomValue(4, 10);
+                currentGraph.generateRandomGraph(numVertices, GetRandomValue(numVertices, 20));
                 onExecuteOp(OP_SLOT1);
             }
             break;

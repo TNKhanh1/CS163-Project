@@ -716,7 +716,7 @@ void HeapState::drawHorizontalArray()
 {
     if (visualNodes.empty()) return;
 
-    float arrayStartX = 500.0f;
+    float arrayStartX = 350.0f;
     float arrayStartY = 880.0f;
     float nodeSize = 60.0f * zoomMultiplier;
     float gap = 10.0f * zoomMultiplier;

@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <queue>
 #include <random>
+#include <set>
+#include <algorithm>
+#include <utility>
 
 struct DSU
 {
@@ -88,13 +91,13 @@ void MST::generateRandomGraph(int numVertices, int numEdges)
     {
         return;
     }
-
+    std::set<std::pair<int, int>> S;
     for (int i = 1; i < numVertices; ++i)
     {
         int u = i;
         int v = rand() % i;
         int w = rand() % 50 + 1;
-
+        S.insert({std::min(u, v), std::max(u, v)});
         insertEdge(u, v, w);
     }
 
@@ -104,7 +107,8 @@ void MST::generateRandomGraph(int numVertices, int numEdges)
     {
         int u = rand() % numVertices;
         int v = rand() % numVertices;
-
+        if(S.find({std::min(u, v), std::max(u, v)}) != S.end()) continue;
+        S.insert({std::min(u, v), std::max(u, v)});
         if (u != v)
         {
             int w = rand() % 50 + 1;
